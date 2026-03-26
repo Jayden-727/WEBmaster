@@ -91,8 +91,8 @@ function findChromePath(): string | undefined {
   return undefined;
 }
 
-async function runPageSpeedApi(url: string): Promise<LighthouseFullResult> {
-  const apiKey = process.env.PAGESPEED_API_KEY ?? "";
+async function callPsi(url: string, useKey: boolean): Promise<LighthouseFullResult> {
+  const apiKey = useKey ? (process.env.PAGESPEED_API_KEY ?? "") : "";
 
   const params = new URLSearchParams({ url, strategy: "mobile", category: "performance" });
   params.append("category", "accessibility");
@@ -101,7 +101,7 @@ async function runPageSpeedApi(url: string): Promise<LighthouseFullResult> {
   if (apiKey) params.set("key", apiKey);
 
   const endpoint = `${PSI_ENDPOINT}?${params.toString()}`;
-  console.log(`[LIGHTHOUSE] calling PageSpeed Insights for ${url}`);
+  console.log(`[LIGHTHOUSE] calling PageSpeed Insights (key=${useKey && !!apiKey}) for ${url}`);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PSI_TIMEOUT_MS);
@@ -110,7 +110,6 @@ async function runPageSpeedApi(url: string): Promise<LighthouseFullResult> {
     const res = await fetch(endpoint, {
       signal: controller.signal,
       cache: "no-store",
-      headers: { Referer: "https://attractivewebai.vercel.app" },
     });
     clearTimeout(timeout);
 
@@ -132,6 +131,21 @@ async function runPageSpeedApi(url: string): Promise<LighthouseFullResult> {
     clearTimeout(timeout);
     throw err;
   }
+}
+
+async function runPageSpeedApi(url: string): Promise<LighthouseFullResult> {
+  const hasKey = !!process.env.PAGESPEED_API_KEY;
+
+  if (hasKey) {
+    try {
+      return await callPsi(url, true);
+    } catch (keyErr) {
+      const msg = keyErr instanceof Error ? keyErr.message : String(keyErr);
+      console.warn(`[LIGHTHOUSE] keyed PSI request failed: ${msg}, retrying without key…`);
+    }
+  }
+
+  return callPsi(url, false);
 }
 
 function extractMetrics(
