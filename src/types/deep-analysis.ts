@@ -57,7 +57,7 @@ export interface DeepAnalysisJob {
   mode: CrawlMode;
   maxPages: number;
   maxDepth: number;
-  status: "crawling" | "paused" | "completed" | "error";
+  status: "pending" | "running" | "crawling" | "paused" | "completed" | "failed" | "error";
   pages: CrawledPage[];
   totalDiscovered: number;
   totalProcessed: number;

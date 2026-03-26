@@ -51,18 +51,92 @@ export default function DeepAnalysisPage({
   const { jobId } = use(params);
   const t = useT();
   const [job, setJob] = useState<DeepAnalysisJob | null>(null);
+  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("inventory");
   const [refinedPages, setRefinedPages] = useState<RefinedPage[]>([]);
   const [refining, setRefining] = useState(false);
   const [targetScope, setTargetScope] = useState<TargetScope>("all");
   const [selectedPageUrl, setSelectedPageUrl] = useState<string | null>(null);
+  const [batchRunning, setBatchRunning] = useState(false);
+
+  const fetchJob = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/deep-analyzer/jobs/${jobId}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const jobData: DeepAnalysisJob = {
+        jobId: data.jobId,
+        rootUrl: data.rootUrl,
+        domain: data.domain,
+        mode: data.mode ?? "all",
+        maxPages: data.maxPages,
+        maxDepth: data.maxDepth,
+        status: data.status,
+        pages: data.pages ?? [],
+        totalDiscovered: data.totalDiscovered,
+        totalProcessed: data.totalProcessed ?? 0,
+        totalFailed: data.totalFailed ?? 0,
+        startedAt: data.startedAt,
+        completedAt: data.completedAt,
+      };
+      setJob(jobData);
+      setLoading(false);
+      return jobData;
+    } catch {
+      setLoading(false);
+      return null;
+    }
+  }, [jobId]);
+
+  const triggerBatch = useCallback(async () => {
+    if (batchRunning) return;
+    setBatchRunning(true);
+    try {
+      const res = await fetch(`/api/deep-analyzer/jobs/${jobId}/run-batch`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        await fetchJob();
+      }
+    } catch {}
+    setBatchRunning(false);
+  }, [jobId, batchRunning, fetchJob]);
 
   useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem(`deep-analysis:${jobId}`);
-      if (stored) setJob(JSON.parse(stored));
-    } catch {}
-  }, [jobId]);
+    fetchJob();
+  }, [fetchJob]);
+
+  useEffect(() => {
+    if (!job) return;
+
+    const isActive = job.status === "running" || job.status === "paused" || job.status === "pending";
+    if (!isActive) return;
+
+    triggerBatch();
+
+    const interval = setInterval(async () => {
+      const updated = await fetchJob();
+      if (updated) {
+        const stillActive = updated.status === "running" || updated.status === "paused" || updated.status === "pending";
+        if (stillActive) {
+          triggerBatch();
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [job?.status, fetchJob, triggerBatch]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex items-center gap-3">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
+          <p className="text-sm text-slate-400">{t("common.loading")}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!job) {
     return (
@@ -78,6 +152,8 @@ export default function DeepAnalysisPage({
       </div>
     );
   }
+
+  const isJobActive = job.status === "running" || job.status === "paused" || job.status === "pending";
 
   const tabs: { id: Tab; label: string; icon: typeof List }[] = [
     { id: "inventory", label: t("deepResults.inventory"), icon: List },
@@ -151,7 +227,11 @@ export default function DeepAnalysisPage({
                 MAX
               </span>
             )}
-            <span className="rounded-full bg-green-500/15 px-2.5 py-0.5 text-[10px] font-medium text-green-300">
+            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${
+              job.status === "completed" ? "bg-green-500/15 text-green-300"
+                : job.status === "failed" ? "bg-red-500/15 text-red-300"
+                : "bg-blue-500/15 text-blue-300"
+            }`}>
               {job.status}
             </span>
           </div>
@@ -182,6 +262,53 @@ export default function DeepAnalysisPage({
             ))}
           </div>
         </div>
+
+        {/* Live progress banner */}
+        {isJobActive && (
+          <div className="mb-4 rounded-lg border border-purple-800/30 bg-purple-950/20 p-3 sm:p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
+              <span className="text-sm text-slate-300">
+                {t("deepAnalyzer.crawling")}
+              </span>
+              {job.mode === "max" && (
+                <span className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-300">MAX</span>
+              )}
+              {batchRunning && (
+                <span className="shrink-0 rounded bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-medium text-blue-300">
+                  {t("deepAnalyzer.processingBatch")}
+                </span>
+              )}
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
+                <p className="text-base font-bold text-purple-300">{job.totalProcessed}</p>
+                <p className="text-[10px] text-slate-500">{t("deepAnalyzer.crawled")}</p>
+              </div>
+              <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
+                <p className="text-base font-bold text-slate-300">{job.totalDiscovered}</p>
+                <p className="text-[10px] text-slate-500">{t("deepAnalyzer.discovered")}</p>
+              </div>
+              <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
+                <p className="text-base font-bold text-red-300">{job.totalFailed}</p>
+                <p className="text-[10px] text-slate-500">{t("common.errors")}</p>
+              </div>
+            </div>
+            {job.totalProcessed > 0 && job.totalDiscovered > 0 && (
+              <div className="mt-2">
+                <div className="h-1.5 rounded-full bg-slate-800">
+                  <div
+                    className="h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all"
+                    style={{ width: `${Math.min((job.totalProcessed / job.totalDiscovered) * 100, 99)}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-right text-[10px] text-slate-500">
+                  {t("deepAnalyzer.maxProgress", { crawled: job.totalProcessed, discovered: job.totalDiscovered })}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Target scope selector */}
         <TargetScopeSelector
