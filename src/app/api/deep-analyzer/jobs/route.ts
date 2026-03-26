@@ -19,21 +19,21 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Invalid URL" }, { status: 400 });
     }
 
-    const job = await createJob({
+    const result = await createJob({
       rootUrl: parsed.url,
       mode: parsed.mode,
       maxPages: parsed.maxPages,
       maxDepth: parsed.maxDepth,
     });
 
-    if (!job) {
+    if (!result.job) {
       return Response.json(
-        { error: "Failed to create job (database unavailable)" },
+        { error: result.error ?? "Failed to create job (unknown error)" },
         { status: 503 },
       );
     }
 
-    return Response.json({ jobId: job.id, status: job.status });
+    return Response.json({ jobId: result.job.id, status: result.job.status });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return Response.json({ error: msg }, { status: 400 });

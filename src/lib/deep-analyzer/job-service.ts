@@ -48,9 +48,11 @@ export async function createJob(params: {
   mode: CrawlMode;
   maxPages: number;
   maxDepth: number;
-}): Promise<DeepJob | null> {
+}): Promise<{ job: DeepJob | null; error: string | null }> {
   const sb = getServiceClient();
-  if (!sb) return null;
+  if (!sb) {
+    return { job: null, error: "Supabase client unavailable — check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables" };
+  }
 
   const domain = extractDomain(params.rootUrl);
   const normalizedRoot = normalizeUrlSimple(params.rootUrl);
@@ -74,10 +76,10 @@ export async function createJob(params: {
 
   if (error) {
     console.error("[JOB-SERVICE] createJob error:", error.message);
-    return null;
+    return { job: null, error: `DB insert failed: ${error.message}` };
   }
 
-  return data as DeepJob;
+  return { job: data as DeepJob, error: null };
 }
 
 export async function getJob(jobId: string): Promise<DeepJob | null> {
