@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AnalyzeForm } from "@/components/dashboard/analyze-form";
+import { DeepAnalyzerForm } from "@/components/dashboard/deep-analyzer-form";
 import { RecentAnalysesList } from "@/components/dashboard/recent-analyses";
 import { QuickActionsSection } from "@/components/dashboard/quick-actions";
 import {
@@ -15,6 +16,7 @@ import {
   ImageIcon,
   Gauge,
   LayoutDashboard,
+  Layers,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -24,6 +26,7 @@ export default function DashboardPage() {
       <main className="mx-auto w-full max-w-6xl px-4 pb-12 pt-6 sm:px-6 sm:pt-8">
         <div className="space-y-6 sm:space-y-8">
           <HeroAnalyzeCard />
+          <DeepAnalyzerCard />
           <QuickActionsSection />
           <div className="grid gap-6 lg:grid-cols-5">
             <div className="lg:col-span-3">
@@ -103,6 +106,35 @@ function HeroAnalyzeCard() {
           </p>
         </div>
         <AnalyzeForm />
+      </div>
+    </section>
+  );
+}
+
+/* ─── DeepAnalyzer Card ─── */
+
+function DeepAnalyzerCard() {
+  return (
+    <section className="relative overflow-hidden rounded-2xl border border-purple-800/30 bg-gradient-to-br from-slate-900 via-slate-900 to-purple-950/30">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -right-20 -top-20 h-[250px] w-[250px] rounded-full bg-purple-500/8 blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 h-[180px] w-[280px] rounded-full bg-indigo-500/5 blur-3xl" />
+      </div>
+
+      <div className="relative px-4 py-6 sm:px-8 sm:py-8">
+        <div className="mb-4 sm:mb-5">
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-[11px] font-medium text-purple-300 sm:text-xs">
+            <Layers className="h-3 w-3" />
+            Multi-Page Crawl & IA Analysis
+          </div>
+          <h2 className="text-lg font-bold tracking-tight sm:text-xl md:text-2xl">
+            DeepAnalyzer
+          </h2>
+          <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-slate-400 sm:text-sm">
+            Crawl entire sites to build a page inventory, visualize site structure, and generate refined Markdown reports on demand.
+          </p>
+        </div>
+        <DeepAnalyzerForm />
       </div>
     </section>
   );
