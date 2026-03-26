@@ -124,5 +124,32 @@
     "all": "All Pages",
     "single": "Selected Page",
     "selectPage": "Select a page to view details"
+  },
+  "techProfile": {
+    "title": "Technology Profile",
+    "detected": "Detected Technologies",
+    "noTech": "No technologies detected.",
+    "confidence": "Confidence",
+    "evidence": "Evidence",
+    "signals": "signals",
+    "siteWide": "Site-wide Technologies",
+    "appearsOn": "Appears on {count} pages",
+    "viewProfile": "View Technology Profile",
+    "categories": {
+      "ecommerce": "eCommerce",
+      "cms": "CMS",
+      "framework": "Frontend Framework",
+      "jsLibrary": "JavaScript Libraries",
+      "analytics": "Analytics & Tracking",
+      "marketing": "Marketing & Personalization",
+      "widgets": "Widgets & Support",
+      "cdn": "Performance / CDN",
+      "hosting": "Hosting & Deployment",
+      "search": "Search & Discovery",
+      "security": "Monitoring & Security",
+      "fonts": "Fonts & Icons",
+      "media": "Media & Video",
+      "other": "Other"
+    }
   }
 }

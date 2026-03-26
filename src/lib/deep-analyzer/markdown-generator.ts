@@ -77,6 +77,21 @@ export function generateMarkdown(
     lines.push("");
   }
 
+  if (page.detectedTech && page.detectedTech.length > 0) {
+    lines.push("## Technology Profile", "");
+    const byCategory = page.detectedTech.reduce<Record<string, typeof page.detectedTech>>((acc, t) => {
+      (acc[t.category] ??= []).push(t);
+      return acc;
+    }, {});
+    for (const [category, techs] of Object.entries(byCategory)) {
+      lines.push(`### ${category}`, "");
+      for (const t of techs) {
+        lines.push(`- **${t.name}** (${(t.confidence * 100).toFixed(0)}%)${t.description ? ` — ${t.description}` : ""}`);
+      }
+      lines.push("");
+    }
+  }
+
   lines.push("---", "");
   lines.push(`*Generated at ${new Date().toISOString()}*`);
 

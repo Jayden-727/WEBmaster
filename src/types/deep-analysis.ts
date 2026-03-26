@@ -21,6 +21,14 @@ export interface QueueItem {
   depth: number;
 }
 
+export interface CrawledPageTech {
+  name: string;
+  category: string;
+  confidence: number;
+  description?: string;
+  matchedSignals: string[];
+}
+
 export interface CrawledPage {
   url: string;
   parentUrl: string | null;
@@ -33,6 +41,7 @@ export interface CrawledPage {
   rawImages: { src: string; alt: string }[];
   rawTextPreview: string;
   pageTypeGuess: string | null;
+  detectedTech?: CrawledPageTech[];
   error?: string;
   crawledAt: string;
 }
@@ -83,6 +92,7 @@ export interface MarkdownTemplateSections {
   mainText: boolean;
   keyLinks: boolean;
   imageReferences: boolean;
+  technologyProfile: boolean;
 }
 
 export interface MarkdownTemplate {

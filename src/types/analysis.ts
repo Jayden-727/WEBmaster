@@ -19,11 +19,28 @@ export interface MetadataAnalysis {
   jsonLd: unknown[];
 }
 
+export type StackCategory =
+  | "ecommerce"
+  | "cms"
+  | "framework"
+  | "jsLibrary"
+  | "analytics"
+  | "marketing"
+  | "widgets"
+  | "cdn"
+  | "hosting"
+  | "search"
+  | "security"
+  | "fonts"
+  | "media"
+  | "other";
+
 export interface StackSignalResult {
-  category: "framework" | "cms" | "analytics" | "infrastructure";
+  category: StackCategory;
   detectedTool: string;
   confidence: number;
   matchedSignals: string[];
+  description?: string;
 }
 
 export interface StructureSignalResult {

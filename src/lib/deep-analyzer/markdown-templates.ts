@@ -12,6 +12,7 @@ export const DEFAULT_TEMPLATE: MarkdownTemplate = {
     mainText: true,
     keyLinks: true,
     imageReferences: true,
+    technologyProfile: true,
   },
   titleFormat: "h1",
   includeRawHtml: false,

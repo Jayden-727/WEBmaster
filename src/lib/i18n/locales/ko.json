@@ -124,5 +124,32 @@
     "all": "전체 페이지",
     "single": "선택한 페이지",
     "selectPage": "상세 정보를 보려면 페이지를 선택하세요"
+  },
+  "techProfile": {
+    "title": "기술 프로필",
+    "detected": "감지된 기술",
+    "noTech": "감지된 기술이 없습니다.",
+    "confidence": "신뢰도",
+    "evidence": "증거",
+    "signals": "개 시그널",
+    "siteWide": "사이트 전체 기술",
+    "appearsOn": "{count}개 페이지에서 발견",
+    "viewProfile": "기술 프로필 보기",
+    "categories": {
+      "ecommerce": "이커머스",
+      "cms": "CMS",
+      "framework": "프론트엔드 프레임워크",
+      "jsLibrary": "자바스크립트 라이브러리",
+      "analytics": "분석 & 추적",
+      "marketing": "마케팅 & 개인화",
+      "widgets": "위젯 & 고객지원",
+      "cdn": "성능 / CDN",
+      "hosting": "호스팅 & 배포",
+      "search": "검색 & 발견",
+      "security": "모니터링 & 보안",
+      "fonts": "폰트 & 아이콘",
+      "media": "미디어 & 동영상",
+      "other": "기타"
+    }
   }
 }

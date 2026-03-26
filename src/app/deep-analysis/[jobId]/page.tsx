@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   Download,
   Layers,
+  Cpu,
 } from "lucide-react";
 import type {
   DeepAnalysisJob,
@@ -27,7 +28,7 @@ import type {
 import { useT } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/language-switcher";
 
-type Tab = "inventory" | "structure" | "raw" | "refinement" | "export";
+type Tab = "inventory" | "structure" | "techProfile" | "raw" | "refinement" | "export";
 type TargetScope = "all" | "single";
 
 const PAGE_TYPE_COLORS: Record<string, string> = {
@@ -81,6 +82,7 @@ export default function DeepAnalysisPage({
   const tabs: { id: Tab; label: string; icon: typeof List }[] = [
     { id: "inventory", label: t("deepResults.inventory"), icon: List },
     { id: "structure", label: t("deepResults.siteStructure"), icon: Network },
+    { id: "techProfile", label: t("techProfile.title"), icon: Cpu },
     { id: "raw", label: t("deepResults.rawData"), icon: FileCode },
     { id: "refinement", label: t("deepResults.refinement"), icon: FileText },
     { id: "export", label: t("export.title"), icon: Download },
@@ -212,6 +214,7 @@ export default function DeepAnalysisPage({
           />
         )}
         {tab === "structure" && <StructureTab pages={job.pages} rootUrl={job.rootUrl} />}
+        {tab === "techProfile" && <TechProfileTab pages={job.pages} scope={targetScope} selectedPageUrl={selectedPageUrl} />}
         {tab === "raw" && <RawDataTab pages={targetPages} />}
         {tab === "refinement" && (
           <RefinementTab
@@ -968,4 +971,221 @@ function downloadText(content: string, filename: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/* ─── Technology Profile Tab ─── */
+
+interface AggregatedTech {
+  name: string;
+  category: string;
+  confidence: number;
+  description?: string;
+  matchedSignals: string[];
+  pageCount: number;
+  pages: string[];
+}
+
+const TECH_CATEGORY_COLORS: Record<string, string> = {
+  ecommerce: "bg-emerald-500/15 text-emerald-300 border-emerald-800/40",
+  cms: "bg-blue-500/15 text-blue-300 border-blue-800/40",
+  framework: "bg-indigo-500/15 text-indigo-300 border-indigo-800/40",
+  jsLibrary: "bg-violet-500/15 text-violet-300 border-violet-800/40",
+  analytics: "bg-orange-500/15 text-orange-300 border-orange-800/40",
+  marketing: "bg-pink-500/15 text-pink-300 border-pink-800/40",
+  widgets: "bg-cyan-500/15 text-cyan-300 border-cyan-800/40",
+  cdn: "bg-sky-500/15 text-sky-300 border-sky-800/40",
+  hosting: "bg-teal-500/15 text-teal-300 border-teal-800/40",
+  search: "bg-amber-500/15 text-amber-300 border-amber-800/40",
+  security: "bg-red-500/15 text-red-300 border-red-800/40",
+  fonts: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-800/40",
+  media: "bg-rose-500/15 text-rose-300 border-rose-800/40",
+  other: "bg-slate-500/15 text-slate-300 border-slate-800/40",
+};
+
+const TECH_CATEGORY_ORDER = [
+  "ecommerce", "cms", "framework", "jsLibrary", "analytics", "marketing",
+  "widgets", "search", "cdn", "hosting", "fonts", "media", "security", "other",
+];
+
+function TechProfileTab({
+  pages,
+  scope,
+  selectedPageUrl,
+}: {
+  pages: CrawledPage[];
+  scope: "all" | "single";
+  selectedPageUrl: string | null;
+}) {
+  const t = useT();
+
+  const aggregated = useMemo(() => {
+    const relevantPages =
+      scope === "single" && selectedPageUrl
+        ? pages.filter((p) => p.url === selectedPageUrl)
+        : pages.filter((p) => p.status === "success");
+
+    const techMap = new Map<string, AggregatedTech>();
+
+    for (const page of relevantPages) {
+      if (!page.detectedTech) continue;
+      for (const tech of page.detectedTech) {
+        const existing = techMap.get(tech.name);
+        if (existing) {
+          existing.pageCount++;
+          if (!existing.pages.includes(page.url)) existing.pages.push(page.url);
+          existing.confidence = Math.max(existing.confidence, tech.confidence);
+          for (const sig of tech.matchedSignals) {
+            if (!existing.matchedSignals.includes(sig)) existing.matchedSignals.push(sig);
+          }
+        } else {
+          techMap.set(tech.name, {
+            name: tech.name,
+            category: tech.category,
+            confidence: tech.confidence,
+            description: tech.description,
+            matchedSignals: [...tech.matchedSignals],
+            pageCount: 1,
+            pages: [page.url],
+          });
+        }
+      }
+    }
+
+    return Array.from(techMap.values()).sort((a, b) => b.pageCount - a.pageCount || b.confidence - a.confidence);
+  }, [pages, scope, selectedPageUrl]);
+
+  const byCategory = useMemo(() => {
+    const map: Record<string, AggregatedTech[]> = {};
+    for (const tech of aggregated) {
+      (map[tech.category] ??= []).push(tech);
+    }
+    return map;
+  }, [aggregated]);
+
+  const sortedCategories = TECH_CATEGORY_ORDER.filter((c) => byCategory[c]);
+  const totalPages = pages.filter((p) => p.status === "success").length;
+
+  if (aggregated.length === 0) {
+    return (
+      <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-800 py-12">
+        <p className="text-sm text-slate-500">{t("techProfile.noTech")}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          {scope === "all" ? t("techProfile.siteWide") : t("techProfile.detected")} ({aggregated.length})
+        </h3>
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+          {aggregated.map((tech) => (
+            <span
+              key={tech.name}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium sm:text-xs ${TECH_CATEGORY_COLORS[tech.category] ?? TECH_CATEGORY_COLORS.other}`}
+            >
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${tech.confidence >= 0.85 ? "bg-green-400" : tech.confidence >= 0.7 ? "bg-yellow-400" : "bg-orange-400"}`} />
+              {tech.name}
+              {scope === "all" && totalPages > 1 && (
+                <span className="ml-0.5 text-[10px] opacity-60">({tech.pageCount})</span>
+              )}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {sortedCategories.map((category) => {
+        const items = byCategory[category]!;
+        const categoryLabel = t(`techProfile.categories.${category}`);
+
+        return (
+          <div key={category} className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-slate-200 sm:text-sm">{categoryLabel}</h3>
+              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">{items.length}</span>
+            </div>
+            <div className="space-y-2">
+              {items.map((tech) => (
+                <DeepTechCard key={tech.name} tech={tech} totalPages={totalPages} showPages={scope === "all" && totalPages > 1} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DeepTechCard({ tech, totalPages, showPages }: { tech: AggregatedTech; totalPages: number; showPages: boolean }) {
+  const t = useT();
+  const [expanded, setExpanded] = useState(false);
+  const confPct = (tech.confidence * 100).toFixed(0);
+  const confColor = tech.confidence >= 0.85 ? "text-green-400" : tech.confidence >= 0.7 ? "text-yellow-400" : "text-orange-400";
+  const barColor = tech.confidence >= 0.85 ? "bg-green-500" : tech.confidence >= 0.7 ? "bg-yellow-500" : "bg-orange-500";
+
+  return (
+    <div className="rounded-lg border border-slate-800/70 bg-slate-950/50 transition hover:border-slate-700">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-left sm:px-4"
+      >
+        <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${TECH_CATEGORY_COLORS[tech.category] ?? TECH_CATEGORY_COLORS.other}`}>
+          {tech.name}
+        </span>
+        {tech.description && (
+          <span className="hidden min-w-0 flex-1 truncate text-[11px] text-slate-500 sm:inline">{tech.description}</span>
+        )}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {showPages && (
+            <span className="text-[10px] text-slate-500">{t("techProfile.appearsOn", { count: tech.pageCount })}</span>
+          )}
+          <span className={`text-xs font-bold ${confColor}`}>{confPct}%</span>
+          <span className="text-slate-600">{expanded ? "▾" : "▸"}</span>
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-slate-800/50 px-3 pb-3 pt-2.5 sm:px-4">
+          {tech.description && <p className="mb-2 text-xs text-slate-400 sm:hidden">{tech.description}</p>}
+
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[10px] text-slate-500">{t("techProfile.confidence")}</span>
+            <div className="h-1.5 flex-1 rounded-full bg-slate-800">
+              <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${tech.confidence * 100}%` }} />
+            </div>
+            <span className={`text-[11px] font-bold ${confColor}`}>{confPct}%</span>
+          </div>
+
+          <div className="mb-2">
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              {t("techProfile.evidence")} ({tech.matchedSignals.length} {t("techProfile.signals")})
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {tech.matchedSignals.map((sig, j) => (
+                <code key={j} className="break-all rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-400">{sig}</code>
+              ))}
+            </div>
+          </div>
+
+          {showPages && tech.pages.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                {t("common.pages")} ({tech.pageCount}/{totalPages})
+              </p>
+              <div className="max-h-32 space-y-0.5 overflow-y-auto">
+                {tech.pages.map((url) => {
+                  let pathname = url;
+                  try { pathname = new URL(url).pathname || "/"; } catch {}
+                  return (
+                    <div key={url} className="truncate text-[11px] text-slate-500">{pathname}</div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

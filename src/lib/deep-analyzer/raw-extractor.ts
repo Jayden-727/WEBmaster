@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
-import type { CrawledPage } from "@/types/deep-analysis";
+import type { CrawledPage, CrawledPageTech } from "@/types/deep-analysis";
+import { detectStack } from "@/lib/stack-detection/detect-stack";
 
 interface RawExtractionResult {
   title: string | null;
@@ -8,6 +9,7 @@ interface RawExtractionResult {
   rawLinks: { href: string; text: string; isInternal: boolean }[];
   rawImages: { src: string; alt: string }[];
   rawTextPreview: string;
+  detectedTech: CrawledPageTech[];
 }
 
 export function extractRawPageData(
@@ -85,7 +87,16 @@ export function extractRawPageData(
   const bodyText = $("body").text().replace(/\s+/g, " ").trim();
   const rawTextPreview = bodyText.slice(0, 500);
 
-  return { title, rawMetadata, rawHeadings, rawLinks, rawImages, rawTextPreview };
+  const stackResults = detectStack(html);
+  const detectedTech: CrawledPageTech[] = stackResults.map((s) => ({
+    name: s.detectedTool,
+    category: s.category,
+    confidence: s.confidence,
+    description: s.description,
+    matchedSignals: s.matchedSignals,
+  }));
+
+  return { title, rawMetadata, rawHeadings, rawLinks, rawImages, rawTextPreview, detectedTech };
 }
 
 export function buildCrawledPage(
@@ -110,6 +121,7 @@ export function buildCrawledPage(
       rawImages: raw.rawImages,
       rawTextPreview: raw.rawTextPreview,
       pageTypeGuess,
+      detectedTech: raw.detectedTech,
       crawledAt: new Date().toISOString(),
     };
   } catch (err) {

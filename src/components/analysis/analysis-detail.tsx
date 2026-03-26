@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { AnalyzeApiResponse, SectionError } from "@/types/analysis";
+import { AnalyzeApiResponse, SectionError, StackCategory } from "@/types/analysis";
+import { CATEGORY_LABELS } from "@/lib/stack-detection/detect-stack";
 
 type Tab = "overview" | "metadata" | "content" | "stack" | "structure" | "links" | "images" | "lighthouse";
 
@@ -10,7 +11,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "metadata", label: "Metadata" },
   { key: "content", label: "Content" },
-  { key: "stack", label: "Stack" },
+  { key: "stack", label: "Technology Profile" },
   { key: "structure", label: "Structure" },
   { key: "links", label: "Links" },
   { key: "images", label: "Images" },
@@ -214,7 +215,7 @@ function OverviewTab({ data, onNavigate }: { data: AnalyzeApiResponse; onNavigat
       <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
         <MetricCard label="Domain" value={domain} />
         <MetricCard label="Page Title" value={data.title ?? "—"} />
-        <MetricCard label="Stack Detected" value={data.data.stack.length} sub={data.data.stack.map((s) => s.detectedTool).join(", ") || "None"} />
+        <MetricCard label="Technologies" value={data.data.stack.length} sub={data.data.stack.slice(0, 5).map((s) => s.detectedTool).join(", ") + (data.data.stack.length > 5 ? ` +${data.data.stack.length - 5}` : "") || "None"} />
         <MetricCard label="Links" value={data.data.links.length}
           sub={`${data.data.links.filter((l) => l.isInternal).length} int · ${data.data.links.filter((l) => !l.isInternal).length} ext`} />
         <MetricCard label="Images" value={data.data.images.length}
@@ -396,54 +397,138 @@ function ContentTab({ data }: { data: AnalyzeApiResponse }) {
   );
 }
 
-/* ─── STACK TAB ─── */
+/* ─── STACK / TECHNOLOGY PROFILE TAB ─── */
+
+const CATEGORY_COLORS: Record<string, string> = {
+  ecommerce: "bg-emerald-500/15 text-emerald-300 border-emerald-800/40",
+  cms: "bg-blue-500/15 text-blue-300 border-blue-800/40",
+  framework: "bg-indigo-500/15 text-indigo-300 border-indigo-800/40",
+  jsLibrary: "bg-violet-500/15 text-violet-300 border-violet-800/40",
+  analytics: "bg-orange-500/15 text-orange-300 border-orange-800/40",
+  marketing: "bg-pink-500/15 text-pink-300 border-pink-800/40",
+  widgets: "bg-cyan-500/15 text-cyan-300 border-cyan-800/40",
+  cdn: "bg-sky-500/15 text-sky-300 border-sky-800/40",
+  hosting: "bg-teal-500/15 text-teal-300 border-teal-800/40",
+  search: "bg-amber-500/15 text-amber-300 border-amber-800/40",
+  security: "bg-red-500/15 text-red-300 border-red-800/40",
+  fonts: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-800/40",
+  media: "bg-rose-500/15 text-rose-300 border-rose-800/40",
+  other: "bg-slate-500/15 text-slate-300 border-slate-800/40",
+};
+
+const CATEGORY_ORDER: StackCategory[] = [
+  "ecommerce", "cms", "framework", "jsLibrary", "analytics", "marketing",
+  "widgets", "search", "cdn", "hosting", "fonts", "media", "security", "other",
+];
 
 function StackTab({ data }: { data: AnalyzeApiResponse }) {
   const stack = data.data.stack;
-  if (!stack.length) return <EmptyState text="No stack technologies detected." />;
+  if (!stack.length) return <EmptyState text="No technologies detected." />;
 
   const byCategory = stack.reduce<Record<string, typeof stack>>((acc, s) => {
     (acc[s.category] ??= []).push(s);
     return acc;
   }, {});
 
-  const categoryColors: Record<string, "indigo" | "blue" | "orange" | "green"> = {
-    framework: "indigo", cms: "blue", analytics: "orange", infrastructure: "green",
-  };
+  const sortedCategories = CATEGORY_ORDER.filter((c) => byCategory[c]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-1.5 sm:gap-2">
-        {stack.map((s, i) => (
-          <Badge key={i} color={categoryColors[s.category] ?? "slate"}>{s.detectedTool}</Badge>
-        ))}
-      </div>
+    <div className="space-y-5">
+      {/* Quick summary chips */}
+      <SectionCard>
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Detected Technologies ({stack.length})
+        </h3>
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+          {stack.map((s, i) => (
+            <span
+              key={i}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium sm:text-xs ${CATEGORY_COLORS[s.category] ?? CATEGORY_COLORS.other}`}
+            >
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${s.confidence >= 0.85 ? "bg-green-400" : s.confidence >= 0.7 ? "bg-yellow-400" : "bg-orange-400"}`} />
+              {s.detectedTool}
+            </span>
+          ))}
+        </div>
+      </SectionCard>
 
-      {Object.entries(byCategory).map(([category, items]) => (
-        <SectionCard key={category}>
-          <h3 className="mb-3 text-xs font-medium capitalize text-slate-200 sm:text-sm">{category}</h3>
-          <div className="space-y-3">
-            {items.map((s, i) => (
-              <div key={i} className="rounded border border-slate-800 p-2.5 sm:p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="min-w-0 truncate text-xs font-medium text-white sm:text-sm">{s.detectedTool}</span>
-                  <span className={`shrink-0 text-xs font-bold sm:text-sm ${s.confidence >= 0.8 ? "text-green-400" : s.confidence >= 0.5 ? "text-orange-400" : "text-red-400"}`}>
-                    {(s.confidence * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <div className="mt-1.5 h-1.5 rounded-full bg-slate-800">
-                  <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${s.confidence * 100}%` }} />
-                </div>
-                <Collapsible title={`Matched signals (${s.matchedSignals.length})`}>
-                  <div className="flex flex-wrap gap-1">
-                    {s.matchedSignals.map((sig, j) => <code key={j} className="break-all rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-300">{sig}</code>)}
-                  </div>
-                </Collapsible>
-              </div>
-            ))}
+      {/* Grouped by category */}
+      {sortedCategories.map((category) => {
+        const items = byCategory[category]!;
+        const label = CATEGORY_LABELS[category as StackCategory] ?? category;
+
+        return (
+          <SectionCard key={category}>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-slate-200 sm:text-sm">{label}</h3>
+              <Badge color="slate">{items.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {items.map((s, i) => (
+                <TechCard key={i} tech={s} categoryColor={CATEGORY_COLORS[s.category] ?? CATEGORY_COLORS.other} />
+              ))}
+            </div>
+          </SectionCard>
+        );
+      })}
+    </div>
+  );
+}
+
+function TechCard({ tech, categoryColor }: { tech: AnalyzeApiResponse["data"]["stack"][number]; categoryColor: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const confPct = (tech.confidence * 100).toFixed(0);
+  const confColor = tech.confidence >= 0.85 ? "text-green-400" : tech.confidence >= 0.7 ? "text-yellow-400" : "text-orange-400";
+  const barColor = tech.confidence >= 0.85 ? "bg-green-500" : tech.confidence >= 0.7 ? "bg-yellow-500" : "bg-orange-500";
+
+  return (
+    <div className="rounded-lg border border-slate-800/70 bg-slate-950/50 transition hover:border-slate-700">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-left sm:px-4"
+      >
+        <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${categoryColor}`}>
+          {tech.detectedTool}
+        </span>
+        {tech.description && (
+          <span className="hidden min-w-0 flex-1 truncate text-[11px] text-slate-500 sm:inline">
+            {tech.description}
+          </span>
+        )}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          <span className={`text-xs font-bold ${confColor}`}>{confPct}%</span>
+          <span className="text-slate-600">{expanded ? "▾" : "▸"}</span>
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-slate-800/50 px-3 pb-3 pt-2.5 sm:px-4">
+          {tech.description && (
+            <p className="mb-2 text-xs text-slate-400 sm:hidden">{tech.description}</p>
+          )}
+
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[10px] text-slate-500">Confidence</span>
+            <div className="h-1.5 flex-1 rounded-full bg-slate-800">
+              <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${tech.confidence * 100}%` }} />
+            </div>
+            <span className={`text-[11px] font-bold ${confColor}`}>{confPct}%</span>
           </div>
-        </SectionCard>
-      ))}
+
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Evidence ({tech.matchedSignals.length} signals)
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {tech.matchedSignals.map((sig, j) => (
+                <code key={j} className="break-all rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-400">
+                  {sig}
+                </code>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
