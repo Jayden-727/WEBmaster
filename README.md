@@ -1,4 +1,4 @@
-# PageIntel
+# AttractiveWebAI
 
 Reverse-engineer any webpage with one URL. Analyze metadata, structure, stack signals, content, links/images, and performance scores in a single dashboard.
 

@@ -27,7 +27,10 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <button onClick={copy} className="rounded bg-slate-800 px-2 py-1 text-xs text-slate-300 transition hover:bg-slate-700">
+    <button
+      onClick={copy}
+      className="min-h-[32px] rounded bg-slate-800 px-2 py-1 text-xs text-slate-300 transition hover:bg-slate-700 active:bg-slate-600 sm:min-h-0"
+    >
       {copied ? "Copied!" : label ?? "Copy"}
     </button>
   );
@@ -43,32 +46,35 @@ function Badge({ children, color = "slate" }: { children: React.ReactNode; color
     indigo: "bg-indigo-900/60 text-indigo-300 border-indigo-800",
     slate: "bg-slate-800 text-slate-300 border-slate-700",
   };
-  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${colors[color]}`}>{children}</span>;
+  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4 ${colors[color]}`}>{children}</span>;
 }
 
 function MetricCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: "green" | "orange" | "red" | "slate" }) {
   const c = color ?? "slate";
   const textColor = c === "green" ? "text-green-400" : c === "orange" ? "text-orange-400" : c === "red" ? "text-red-400" : "text-white";
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-      <p className={`text-2xl font-bold ${textColor}`}>{value}</p>
-      <p className="mt-0.5 text-xs text-slate-400">{label}</p>
-      {sub && <p className="text-xs text-slate-500">{sub}</p>}
+    <div className="rounded-lg border border-slate-800 bg-slate-900 p-2.5 sm:p-3">
+      <p className={`truncate text-lg font-bold sm:text-2xl ${textColor}`}>{value}</p>
+      <p className="mt-0.5 text-[11px] text-slate-400 sm:text-xs">{label}</p>
+      {sub && <p className="truncate text-[10px] text-slate-500 sm:text-xs">{sub}</p>}
     </div>
   );
 }
 
 function SectionCard({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={`rounded-lg border border-slate-800 bg-slate-900 p-4 ${className ?? ""}`}>{children}</div>;
+  return <div className={`rounded-lg border border-slate-800 bg-slate-900 p-3 sm:p-4 ${className ?? ""}`}>{children}</div>;
 }
 
 function Collapsible({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="rounded border border-slate-800">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-800/50">
-        <span>{title}</span>
-        <span className="text-xs text-slate-500">{open ? "▲" : "▼"}</span>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full min-h-[40px] items-center justify-between gap-2 px-3 py-2 text-left text-sm text-slate-300 hover:bg-slate-800/50 active:bg-slate-800 sm:min-h-0"
+      >
+        <span className="min-w-0 break-words">{title}</span>
+        <span className="shrink-0 text-xs text-slate-500">{open ? "▲" : "▼"}</span>
       </button>
       {open && <div className="border-t border-slate-800 px-3 py-2">{children}</div>}
     </div>
@@ -104,10 +110,10 @@ export function AnalysisDetail({ analysisId }: { analysisId: string }) {
 
   if (loading) {
     return (
-      <section className="space-y-6">
-        <div className="h-8 w-72 animate-pulse rounded bg-slate-800" />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-lg bg-slate-800" />)}
+      <section className="space-y-4 sm:space-y-6">
+        <div className="h-6 w-48 animate-pulse rounded bg-slate-800 sm:h-8 sm:w-72" />
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-slate-800 sm:h-20" />)}
         </div>
       </section>
     );
@@ -116,9 +122,9 @@ export function AnalysisDetail({ analysisId }: { analysisId: string }) {
   if (error || !data) {
     return (
       <section className="space-y-4">
-        <h1 className="text-2xl font-semibold">Analysis not found</h1>
+        <h1 className="text-xl font-semibold sm:text-2xl">Analysis not found</h1>
         <p className="text-sm text-red-400">{error ?? "No data."}</p>
-        <Link href="/dashboard" className="text-sm text-indigo-400 underline">← Dashboard</Link>
+        <Link href="/dashboard" className="inline-block min-h-[40px] leading-[40px] text-sm text-indigo-400 underline sm:min-h-0 sm:leading-normal">← Dashboard</Link>
       </section>
     );
   }
@@ -126,43 +132,52 @@ export function AnalysisDetail({ analysisId }: { analysisId: string }) {
   const sectionHasError = (section: string) => data.errors.some((e) => e.section === section);
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <Link href="/dashboard" className="text-xs text-slate-500 hover:text-slate-300">← Dashboard</Link>
-          <h1 className="mt-1 text-2xl font-bold">{data.title ?? new URL(data.url).hostname}</h1>
-          <p className="mt-0.5 text-sm text-slate-400">{data.url}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Badge color={data.success ? "green" : "red"}>{data.success ? "Completed" : "Failed"}</Badge>
-            <Badge>{data.mode} mode</Badge>
-            <Badge color={data.persisted ? "green" : "yellow"}>{data.persisted ? "Saved" : "Not persisted"}</Badge>
-            {data.errors.length > 0 && <Badge color="red">{data.errors.length} error{data.errors.length > 1 ? "s" : ""}</Badge>}
-          </div>
-        </div>
-        <div className="flex shrink-0 gap-2">
-          <a href={data.url} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <Link href="/dashboard" className="min-h-[32px] text-xs text-slate-500 hover:text-slate-300 active:text-slate-200 sm:min-h-0">← Dashboard</Link>
+          <a
+            href={data.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-300 hover:bg-slate-700 active:bg-slate-600"
+          >
             Open URL ↗
           </a>
         </div>
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-bold sm:text-2xl">{data.title ?? (() => { try { return new URL(data.url).hostname; } catch { return data.url; } })()}</h1>
+          <p className="mt-0.5 truncate text-xs text-slate-400 sm:text-sm">{data.url}</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+          <Badge color={data.success ? "green" : "red"}>{data.success ? "Completed" : "Failed"}</Badge>
+          <Badge>{data.mode} mode</Badge>
+          <Badge color={data.persisted ? "green" : "yellow"}>{data.persisted ? "Saved" : "Not persisted"}</Badge>
+          {data.errors.length > 0 && <Badge color="red">{data.errors.length} error{data.errors.length > 1 ? "s" : ""}</Badge>}
+        </div>
       </div>
 
-      {/* Tabs */}
-      <nav className="flex gap-1 overflow-x-auto border-b border-slate-800">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`relative whitespace-nowrap px-3 py-2 text-sm transition-colors ${
-              activeTab === tab.key ? "text-white" : "text-slate-500 hover:text-slate-300"
-            }`}
-          >
-            {tab.label}
-            {sectionHasError(tab.key) && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-red-500" />}
-            {activeTab === tab.key && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-indigo-500" />}
-          </button>
-        ))}
-      </nav>
+      {/* Tabs — horizontally scrollable */}
+      <div className="relative">
+        <nav className="scrollbar-hide flex gap-0.5 overflow-x-auto border-b border-slate-800 sm:gap-1">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`relative shrink-0 whitespace-nowrap px-3 py-2.5 text-xs font-medium transition-colors sm:px-3 sm:py-2 sm:text-sm ${
+                activeTab === tab.key ? "text-white" : "text-slate-500 hover:text-slate-300 active:text-slate-200"
+              }`}
+            >
+              {tab.label}
+              {sectionHasError(tab.key) && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-red-500" />}
+              {activeTab === tab.key && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-indigo-500" />}
+            </button>
+          ))}
+        </nav>
+        {/* Scroll fade hints */}
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-6 bg-gradient-to-l from-slate-950 sm:hidden" />
+      </div>
 
       {/* Tab content */}
       <div>
@@ -186,40 +201,36 @@ function OverviewTab({ data, onNavigate }: { data: AnalyzeApiResponse; onNavigat
   const domain = (() => { try { return new URL(data.url).hostname; } catch { return data.url; } })();
 
   return (
-    <div className="space-y-6">
-      {/* Error banner */}
+    <div className="space-y-4 sm:space-y-6">
       {data.errors.length > 0 && <ErrorPanel errors={data.errors} />}
 
-      {/* Warning banner */}
       {data.warnings.length > 0 && (
         <div className="rounded-lg border border-yellow-800/50 bg-yellow-950/30 p-3">
           <p className="text-sm font-medium text-yellow-400">Warnings</p>
-          {data.warnings.map((w, i) => <p key={i} className="mt-1 text-xs text-yellow-300/80">⚠ {w}</p>)}
+          {data.warnings.map((w, i) => <p key={i} className="mt-1 break-words text-xs text-yellow-300/80">⚠ {w}</p>)}
         </div>
       )}
 
-      {/* Metric grid */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
         <MetricCard label="Domain" value={domain} />
         <MetricCard label="Page Title" value={data.title ?? "—"} />
         <MetricCard label="Stack Detected" value={data.data.stack.length} sub={data.data.stack.map((s) => s.detectedTool).join(", ") || "None"} />
         <MetricCard label="Links" value={data.data.links.length}
-          sub={`${data.data.links.filter((l) => l.isInternal).length} internal · ${data.data.links.filter((l) => !l.isInternal).length} external`} />
+          sub={`${data.data.links.filter((l) => l.isInternal).length} int · ${data.data.links.filter((l) => !l.isInternal).length} ext`} />
         <MetricCard label="Images" value={data.data.images.length}
-          sub={`${data.data.images.filter((i) => i.isLazy).length} lazy-loaded`} />
+          sub={`${data.data.images.filter((i) => i.isLazy).length} lazy`} />
         <MetricCard label="Performance" value={lh.performanceScore ?? "—"} color={scoreColor(lh.performanceScore)} />
         <MetricCard label="SEO" value={lh.seoScore ?? "—"} color={scoreColor(lh.seoScore)} />
         <MetricCard label="Errors" value={data.errors.length} color={data.errors.length > 0 ? "red" : "green"}
-          sub={data.errors.length === 0 ? "All sections OK" : `${data.errors.map((e) => e.section).join(", ")}`} />
+          sub={data.errors.length === 0 ? "All OK" : data.errors.map((e) => e.section).join(", ")} />
       </div>
 
-      {/* Metadata health */}
       <SectionCard>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-medium text-slate-200">Metadata Health</h3>
-          <button onClick={() => onNavigate("metadata")} className="text-xs text-indigo-400 hover:text-indigo-300">View details →</button>
+          <h3 className="text-xs font-medium text-slate-200 sm:text-sm">Metadata Health</h3>
+          <button onClick={() => onNavigate("metadata")} className="min-h-[32px] text-xs text-indigo-400 hover:text-indigo-300 active:text-indigo-200 sm:min-h-0">View details →</button>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {[
             { label: "Title", ok: !!data.data.metadata.title },
             { label: "Description", ok: !!data.data.metadata.description },
@@ -227,23 +238,22 @@ function OverviewTab({ data, onNavigate }: { data: AnalyzeApiResponse; onNavigat
             { label: "OG Image", ok: !!data.data.metadata.ogImage },
             { label: "Robots", ok: !!data.data.metadata.robots },
           ].map((m) => (
-            <div key={m.label} className="flex items-center gap-2 rounded border border-slate-800 px-2 py-1.5">
-              <span className={`h-2 w-2 rounded-full ${m.ok ? "bg-green-500" : "bg-red-500"}`} />
-              <span className="text-xs text-slate-300">{m.label}</span>
+            <div key={m.label} className="flex items-center gap-1.5 rounded border border-slate-800 px-2 py-1.5 sm:gap-2">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${m.ok ? "bg-green-500" : "bg-red-500"}`} />
+              <span className="text-[11px] text-slate-300 sm:text-xs">{m.label}</span>
             </div>
           ))}
         </div>
       </SectionCard>
 
-      {/* Quick nav */}
       <SectionCard>
-        <h3 className="mb-3 text-sm font-medium text-slate-200">Explore Sections</h3>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <h3 className="mb-3 text-xs font-medium text-slate-200 sm:text-sm">Explore Sections</h3>
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 sm:grid-cols-4">
           {TABS.filter((t) => t.key !== "overview").map((tab) => {
             const hasError = data.errors.some((e) => e.section === tab.key);
             return (
               <button key={tab.key} onClick={() => onNavigate(tab.key)}
-                className={`rounded-lg border px-3 py-2.5 text-left text-sm transition hover:bg-slate-800/80 ${
+                className={`min-h-[44px] rounded-lg border px-3 py-2.5 text-left text-xs transition hover:bg-slate-800/80 active:bg-slate-800 sm:text-sm ${
                   hasError ? "border-red-800/50 bg-red-950/20" : "border-slate-800 bg-slate-900/50"
                 }`}
               >
@@ -262,20 +272,20 @@ function OverviewTab({ data, onNavigate }: { data: AnalyzeApiResponse; onNavigat
 
 function ErrorPanel({ errors }: { errors: SectionError[] }) {
   return (
-    <div className="rounded-lg border border-red-800/50 bg-red-950/30 p-4">
+    <div className="rounded-lg border border-red-800/50 bg-red-950/30 p-3 sm:p-4">
       <h3 className="text-sm font-semibold text-red-400">{errors.length} Error{errors.length > 1 ? "s" : ""} Detected</h3>
       <div className="mt-3 space-y-2">
         {errors.map((e, i) => (
-          <Collapsible key={i} title={`${e.section} — ${e.message.slice(0, 80)}${e.message.length > 80 ? "…" : ""}`}>
+          <Collapsible key={i} title={`${e.section} — ${e.message.slice(0, 60)}${e.message.length > 60 ? "…" : ""}`}>
             <div className="space-y-1.5">
               <div className="flex gap-2"><span className="text-xs text-slate-500">Module</span><Badge color="red">{e.section}</Badge></div>
-              <div><span className="text-xs text-slate-500">Message</span><p className="text-xs text-red-300">{e.message}</p></div>
+              <div><span className="text-xs text-slate-500">Message</span><p className="break-words text-xs text-red-300">{e.message}</p></div>
               {e.detail && (
                 <div><span className="text-xs text-slate-500">Technical detail</span>
-                  <pre className="mt-1 max-h-32 overflow-auto rounded bg-slate-950 p-2 text-xs text-slate-400">{e.detail}</pre>
+                  <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-950 p-2 text-xs text-slate-400">{e.detail}</pre>
                 </div>
               )}
-              {e.fallbackUsed && <p className="text-xs text-yellow-400">Fallback: {e.fallbackUsed}</p>}
+              {e.fallbackUsed && <p className="break-words text-xs text-yellow-400">Fallback: {e.fallbackUsed}</p>}
               {e.timestamp && <p className="text-xs text-slate-600">{new Date(e.timestamp).toLocaleString()}</p>}
             </div>
           </Collapsible>
@@ -302,16 +312,16 @@ function MetadataTab({ data }: { data: AnalyzeApiResponse }) {
       <SectionCard>
         <div className="divide-y divide-slate-800">
           {rows.map(([label, value]) => (
-            <div key={label} className="flex items-start justify-between gap-4 py-2.5">
-              <span className="shrink-0 text-sm text-slate-400">{label}</span>
-              <div className="flex items-center gap-2 text-right">
+            <div key={label} className="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+              <span className="shrink-0 text-xs font-medium text-slate-400 sm:text-sm">{label}</span>
+              <div className="flex items-start gap-2">
                 {value ? (
                   <>
-                    <span className="text-sm text-white break-all">{value}</span>
+                    <span className="min-w-0 break-all text-xs text-white sm:text-sm sm:text-right">{value}</span>
                     <CopyButton text={value} />
                   </>
                 ) : (
-                  <span className="text-sm text-slate-600">—</span>
+                  <span className="text-xs text-slate-600 sm:text-sm">—</span>
                 )}
               </div>
             </div>
@@ -323,7 +333,7 @@ function MetadataTab({ data }: { data: AnalyzeApiResponse }) {
         <SectionCard>
           <p className="mb-2 text-xs font-medium text-slate-400">OG Image Preview</p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={m.ogImage} alt="OG Image" className="max-h-48 rounded border border-slate-700" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <img src={m.ogImage} alt="OG Image" className="max-h-48 w-full rounded border border-slate-700 object-contain sm:w-auto" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         </SectionCard>
       )}
 
@@ -333,7 +343,7 @@ function MetadataTab({ data }: { data: AnalyzeApiResponse }) {
             <p className="text-xs font-medium text-slate-400">JSON-LD ({m.jsonLd.length})</p>
             <CopyButton text={JSON.stringify(m.jsonLd, null, 2)} />
           </div>
-          <pre className="max-h-60 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(m.jsonLd, null, 2)}</pre>
+          <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-950 p-2 text-[11px] text-slate-300 sm:p-3 sm:text-xs">{JSON.stringify(m.jsonLd, null, 2)}</pre>
         </SectionCard>
       )}
     </div>
@@ -351,18 +361,18 @@ function ContentTab({ data }: { data: AnalyzeApiResponse }) {
       {data.title && (
         <SectionCard>
           <p className="text-xs font-medium text-slate-400">Extracted Title</p>
-          <p className="mt-1 text-lg font-semibold text-white">{data.title}</p>
+          <p className="mt-1 break-words text-base font-semibold text-white sm:text-lg">{data.title}</p>
         </SectionCard>
       )}
 
       {c.cleanText && (
         <SectionCard>
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-slate-400">Clean Text <span className="text-slate-600">({c.cleanText.length.toLocaleString()} chars)</span></p>
             <CopyButton text={c.cleanText} />
           </div>
-          <Collapsible title={`Preview (first 2000 chars)`} defaultOpen>
-            <pre className="max-h-72 overflow-auto text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
+          <Collapsible title="Preview (first 2000 chars)" defaultOpen>
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-300">
               {c.cleanText.slice(0, 2000)}{c.cleanText.length > 2000 ? "\n\n…" : ""}
             </pre>
           </Collapsible>
@@ -371,12 +381,12 @@ function ContentTab({ data }: { data: AnalyzeApiResponse }) {
 
       {c.markdownText && (
         <SectionCard>
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-medium text-slate-400">Markdown <span className="text-slate-600">({c.markdownText.length.toLocaleString()} chars)</span></p>
             <CopyButton text={c.markdownText} />
           </div>
-          <Collapsible title={`Preview (first 2000 chars)`}>
-            <pre className="max-h-72 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-300 whitespace-pre-wrap leading-relaxed font-mono">
+          <Collapsible title="Preview (first 2000 chars)">
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-950 p-2 text-xs leading-relaxed text-slate-300 font-mono sm:p-3">
               {c.markdownText.slice(0, 2000)}{c.markdownText.length > 2000 ? "\n\n…" : ""}
             </pre>
           </Collapsible>
@@ -403,7 +413,7 @@ function StackTab({ data }: { data: AnalyzeApiResponse }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {stack.map((s, i) => (
           <Badge key={i} color={categoryColors[s.category] ?? "slate"}>{s.detectedTool}</Badge>
         ))}
@@ -411,13 +421,13 @@ function StackTab({ data }: { data: AnalyzeApiResponse }) {
 
       {Object.entries(byCategory).map(([category, items]) => (
         <SectionCard key={category}>
-          <h3 className="mb-3 text-sm font-medium capitalize text-slate-200">{category}</h3>
+          <h3 className="mb-3 text-xs font-medium capitalize text-slate-200 sm:text-sm">{category}</h3>
           <div className="space-y-3">
             {items.map((s, i) => (
-              <div key={i} className="rounded border border-slate-800 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-white">{s.detectedTool}</span>
-                  <span className={`text-sm font-bold ${s.confidence >= 0.8 ? "text-green-400" : s.confidence >= 0.5 ? "text-orange-400" : "text-red-400"}`}>
+              <div key={i} className="rounded border border-slate-800 p-2.5 sm:p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-xs font-medium text-white sm:text-sm">{s.detectedTool}</span>
+                  <span className={`shrink-0 text-xs font-bold sm:text-sm ${s.confidence >= 0.8 ? "text-green-400" : s.confidence >= 0.5 ? "text-orange-400" : "text-red-400"}`}>
                     {(s.confidence * 100).toFixed(0)}%
                   </span>
                 </div>
@@ -426,7 +436,7 @@ function StackTab({ data }: { data: AnalyzeApiResponse }) {
                 </div>
                 <Collapsible title={`Matched signals (${s.matchedSignals.length})`}>
                   <div className="flex flex-wrap gap-1">
-                    {s.matchedSignals.map((sig, j) => <code key={j} className="rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-300">{sig}</code>)}
+                    {s.matchedSignals.map((sig, j) => <code key={j} className="break-all rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-300">{sig}</code>)}
                   </div>
                 </Collapsible>
               </div>
@@ -448,22 +458,22 @@ function StructureTab({ data }: { data: AnalyzeApiResponse }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
         {detected.map((s, i) => (
           <SectionCard key={i}>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium capitalize text-white">{s.componentName.replace(/_/g, " ")}</span>
+            <div className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-xs font-medium capitalize text-white sm:text-sm">{s.componentName.replace(/_/g, " ")}</span>
               <Badge color="green">×{s.detectedCount}</Badge>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <div className="h-1 flex-1 rounded-full bg-slate-800">
                 <div className="h-full rounded-full bg-green-500" style={{ width: `${s.confidence * 100}%` }} />
               </div>
-              <span className="text-xs text-slate-400">{(s.confidence * 100).toFixed(0)}%</span>
+              <span className="shrink-0 text-xs text-slate-400">{(s.confidence * 100).toFixed(0)}%</span>
             </div>
             <Collapsible title={`Matched patterns (${s.matchedPatterns.length})`}>
               <div className="flex flex-wrap gap-1">
-                {s.matchedPatterns.map((p, j) => <code key={j} className="rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-400">{p}</code>)}
+                {s.matchedPatterns.map((p, j) => <code key={j} className="break-all rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-400">{p}</code>)}
               </div>
             </Collapsible>
           </SectionCard>
@@ -506,13 +516,13 @@ function LinksTab({ data }: { data: AnalyzeApiResponse }) {
   const external = allLinks.length - internal;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex gap-1">
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+        <div className="scrollbar-hide flex gap-1 overflow-x-auto">
           {(["all", "internal", "external"] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                filter === f ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+              className={`min-h-[36px] shrink-0 rounded-md px-2.5 py-1.5 text-xs font-medium transition sm:min-h-0 sm:py-1 ${
+                filter === f ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 active:bg-slate-600"
               }`}
             >
               {f === "all" ? `All (${allLinks.length})` : f === "internal" ? `Internal (${internal})` : `External (${external})`}
@@ -521,21 +531,25 @@ function LinksTab({ data }: { data: AnalyzeApiResponse }) {
         </div>
         <input
           value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search links…"
-          className="rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-white placeholder:text-slate-500 w-48"
+          className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-2 text-xs text-white placeholder:text-slate-500 sm:w-48 sm:py-1"
         />
       </div>
 
-      <div className="max-h-[500px] space-y-1 overflow-auto">
+      <div className="max-h-[60vh] space-y-1 overflow-auto sm:max-h-[500px]">
         {filtered.slice(0, 200).map((l, i) => (
-          <div key={i} className="group flex items-center gap-2 rounded border border-slate-800/50 px-3 py-1.5 hover:bg-slate-900">
-            <Badge color={l.isInternal ? "green" : "blue"}>{l.isInternal ? "INT" : "EXT"}</Badge>
-            <a href={l.href} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-xs text-indigo-400 hover:text-indigo-300 underline" title={l.href}>
-              {l.href}
-            </a>
-            {l.text && <span className="hidden truncate text-xs text-slate-500 sm:inline max-w-[200px]">{l.text}</span>}
-            <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
-              <CopyButton text={l.href} label="Copy" />
-              <a href={l.href} target="_blank" rel="noopener noreferrer" className="rounded bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700">Open ↗</a>
+          <div key={i} className="flex flex-col gap-1.5 rounded border border-slate-800/50 px-3 py-2 sm:flex-row sm:items-center sm:gap-2 sm:py-1.5">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Badge color={l.isInternal ? "green" : "blue"}>{l.isInternal ? "INT" : "EXT"}</Badge>
+              <a href={l.href} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-xs text-indigo-400 underline active:text-indigo-200" title={l.href}>
+                {l.href}
+              </a>
+            </div>
+            <div className="flex items-center gap-1.5 sm:shrink-0">
+              {l.text && <span className="min-w-0 truncate text-[11px] text-slate-500 max-w-[150px] sm:max-w-[200px]">{l.text}</span>}
+              <div className="ml-auto flex shrink-0 gap-1">
+                <CopyButton text={l.href} label="Copy" />
+                <a href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[32px] items-center rounded bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700 active:bg-slate-600 sm:min-h-0">Open ↗</a>
+              </div>
             </div>
           </div>
         ))}
@@ -556,16 +570,20 @@ function ImagesTab({ data }: { data: AnalyzeApiResponse }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 text-sm text-slate-300">
+      <div className="flex items-center gap-3 text-xs text-slate-300 sm:gap-4 sm:text-sm">
         <span>{images.length} images</span>
         <span>·</span>
         <span>{images.filter((i) => i.isLazy).length} lazy-loaded</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
         {images.slice(0, 60).map((img, i) => (
           <div key={i} className="group rounded-lg border border-slate-800 bg-slate-900 overflow-hidden">
-            <div className="relative aspect-video bg-slate-950 flex items-center justify-center cursor-pointer" onClick={() => setPreview(img.src)}>
+            <button
+              type="button"
+              className="relative aspect-video w-full bg-slate-950 flex items-center justify-center"
+              onClick={() => setPreview(img.src)}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={img.src} alt={img.alt || img.filename} loading="lazy"
@@ -573,12 +591,12 @@ function ImagesTab({ data }: { data: AnalyzeApiResponse }) {
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.innerHTML = '<span class="text-xs text-slate-600">Failed to load</span>'; }}
               />
               {img.isLazy && <span className="absolute right-1 top-1 rounded bg-yellow-900/80 px-1 py-0.5 text-[10px] text-yellow-300">LAZY</span>}
-            </div>
+            </button>
             <div className="p-2 space-y-1">
-              <p className="truncate text-xs font-medium text-slate-300" title={img.filename}>{img.filename || "unnamed"}</p>
-              {img.alt && <p className="truncate text-xs text-slate-500" title={img.alt}>alt: {img.alt}</p>}
-              <div className="flex gap-1 pt-1">
-                <a href={img.src} target="_blank" rel="noopener noreferrer" className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400 hover:bg-slate-700">Open ↗</a>
+              <p className="truncate text-[11px] font-medium text-slate-300 sm:text-xs" title={img.filename}>{img.filename || "unnamed"}</p>
+              {img.alt && <p className="truncate text-[10px] text-slate-500 sm:text-xs" title={img.alt}>alt: {img.alt}</p>}
+              <div className="flex gap-1 pt-0.5">
+                <a href={img.src} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[28px] items-center rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400 hover:bg-slate-700 active:bg-slate-600 sm:min-h-0">Open ↗</a>
                 <CopyButton text={img.src} label="Copy URL" />
               </div>
             </div>
@@ -587,16 +605,16 @@ function ImagesTab({ data }: { data: AnalyzeApiResponse }) {
       </div>
       {images.length > 60 && <p className="text-xs text-slate-500">Showing 60 of {images.length}</p>}
 
-      {/* Preview modal */}
+      {/* Preview modal — full-screen on mobile */}
       {preview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setPreview(null)}>
-          <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-2 sm:p-4" onClick={() => setPreview(null)}>
+          <div className="relative flex max-h-full w-full max-w-4xl flex-1 flex-col items-center justify-center" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview} alt="Preview" className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain" />
-            <div className="mt-2 flex justify-center gap-2">
-              <a href={preview} target="_blank" rel="noopener noreferrer" className="rounded bg-indigo-600 px-3 py-1.5 text-xs text-white hover:bg-indigo-500">Open original ↗</a>
+            <img src={preview} alt="Preview" className="max-h-[75vh] max-w-full rounded-lg object-contain sm:max-h-[80vh]" />
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <a href={preview} target="_blank" rel="noopener noreferrer" className="min-h-[40px] rounded bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-500 active:bg-indigo-400 sm:min-h-0 sm:px-3 sm:py-1.5">Open original ↗</a>
               <CopyButton text={preview} label="Copy URL" />
-              <button onClick={() => setPreview(null)} className="rounded bg-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-600">Close</button>
+              <button onClick={() => setPreview(null)} className="min-h-[40px] rounded bg-slate-700 px-4 py-2 text-xs text-slate-300 hover:bg-slate-600 active:bg-slate-500 sm:min-h-0 sm:px-3 sm:py-1.5">Close</button>
             </div>
           </div>
         </div>
@@ -622,7 +640,7 @@ function LighthouseTab({ data }: { data: AnalyzeApiResponse }) {
     return (
       <SectionCard>
         <p className="text-sm font-medium text-red-400">Lighthouse analysis unavailable</p>
-        {lhError && <p className="mt-1 text-xs text-red-300">{lhError.message}</p>}
+        {lhError && <p className="mt-1 break-words text-xs text-red-300">{lhError.message}</p>}
         <p className="mt-2 text-xs text-slate-500">Ensure Google Chrome is installed locally, or configure a PAGESPEED_API_KEY.</p>
       </SectionCard>
     );
@@ -644,28 +662,28 @@ function LighthouseTab({ data }: { data: AnalyzeApiResponse }) {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
         {categories.map((cat) => (
           <MetricCard key={cat.label} label={cat.label} value={cat.value ?? "—"} color={scoreColor(cat.value)} />
         ))}
       </div>
 
       <SectionCard>
-        <h3 className="mb-3 text-sm font-medium text-slate-200">Core Web Vitals</h3>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <h3 className="mb-3 text-xs font-medium text-slate-200 sm:text-sm">Core Web Vitals</h3>
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 sm:gap-2 lg:grid-cols-3">
           {vitals.map((v) => {
             const status = v.value === null ? "unknown" : v.value > v.poor ? "poor" : v.value > v.good ? "needs-work" : "good";
             const dot = status === "good" ? "bg-green-500" : status === "needs-work" ? "bg-orange-500" : status === "poor" ? "bg-red-500" : "bg-slate-600";
             return (
-              <div key={v.label} className="flex items-center gap-3 rounded border border-slate-800 px-3 py-2">
-                <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`} />
+              <div key={v.label} className="flex items-center gap-2 rounded border border-slate-800 px-2.5 py-2 sm:gap-3 sm:px-3">
+                <div className={`h-2 w-2 shrink-0 rounded-full sm:h-2.5 sm:w-2.5 ${dot}`} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-medium text-white">{v.label}</span>
-                    <span className="text-sm font-mono text-white">{v.format(v.value)}</span>
+                  <div className="flex items-baseline justify-between gap-1 sm:gap-2">
+                    <span className="text-xs font-medium text-white sm:text-sm">{v.label}</span>
+                    <span className="shrink-0 text-xs font-mono text-white sm:text-sm">{v.format(v.value)}</span>
                   </div>
-                  <p className="text-xs text-slate-500">{v.full}</p>
+                  <p className="truncate text-[10px] text-slate-500 sm:text-xs">{v.full}</p>
                 </div>
               </div>
             );
@@ -675,14 +693,14 @@ function LighthouseTab({ data }: { data: AnalyzeApiResponse }) {
 
       {insights.length > 0 && (
         <SectionCard>
-          <h3 className="mb-3 text-sm font-medium text-slate-200">Opportunities &amp; Diagnostics ({insights.length})</h3>
+          <h3 className="mb-3 text-xs font-medium text-slate-200 sm:text-sm">Opportunities &amp; Diagnostics ({insights.length})</h3>
           <div className="space-y-2">
             {insights.map((ins, i) => (
-              <div key={i} className="flex items-start gap-2 rounded border border-slate-800 px-3 py-2">
+              <div key={i} className="flex items-start gap-2 rounded border border-slate-800 px-2.5 py-2 sm:px-3">
                 <Badge color={ins.severity === "high" ? "red" : ins.severity === "medium" ? "orange" : "yellow"}>{ins.severity}</Badge>
                 <div className="min-w-0">
-                  <p className="text-sm text-white">{ins.title}</p>
-                  {ins.description && <p className="mt-0.5 text-xs text-slate-500 truncate">{ins.description}</p>}
+                  <p className="break-words text-xs text-white sm:text-sm">{ins.title}</p>
+                  {ins.description && <p className="mt-0.5 break-words text-[11px] text-slate-500 sm:text-xs">{ins.description}</p>}
                 </div>
               </div>
             ))}
@@ -697,8 +715,8 @@ function LighthouseTab({ data }: { data: AnalyzeApiResponse }) {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-800 py-12">
-      <p className="text-sm text-slate-500">{text}</p>
+    <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-800 py-10 sm:py-12">
+      <p className="text-xs text-slate-500 sm:text-sm">{text}</p>
     </div>
   );
 }

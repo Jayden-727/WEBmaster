@@ -1,16 +1,26 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+
 export const metadata: Metadata = {
-  title: "PageIntel",
-  description: "Webpage reverse-engineering and analysis platform."
+  title: "AttractiveWebAI — AI-Powered Website Intelligence",
+  description:
+    "Analyze any website's structure, content, stack, metadata, links, images, and performance in one intelligent dashboard.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        <main className="mx-auto min-h-screen w-full max-w-6xl p-6">{children}</main>
+    <html lang="en" className={inter.variable}>
+      <body className="font-sans overflow-x-hidden">
+        {children}
       </body>
     </html>
   );

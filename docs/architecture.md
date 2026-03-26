@@ -1,4 +1,4 @@
-# PageIntel MVP Architecture
+# AttractiveWebAI MVP Architecture
 
 ## High-level modules
 

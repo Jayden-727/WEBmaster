@@ -4,4 +4,19 @@
 
 body {
   @apply bg-slate-950 text-slate-100 antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

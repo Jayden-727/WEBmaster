@@ -79,7 +79,7 @@ export async function analyzePage(input: AnalyzeRequest): Promise<AnalyzeApiResp
 
   const htmlResult = await runAsyncStep("crawler", async () => {
     const res = await fetch(input.url, {
-      headers: { "User-Agent": "PageIntelBot/0.1 (+https://pageintel.local)" },
+      headers: { "User-Agent": "AttractiveWebAIBot/0.1 (+https://attractivewebai.local)" },
       signal: controller.signal,
       cache: "no-store",
     });

@@ -1,4 +1,4 @@
-# PageIntel MVP Implementation Plan
+# AttractiveWebAI MVP Implementation Plan
 
 ## Phase 1 - Foundation
 1. Initialize Next.js app shell with App Router + Tailwind.

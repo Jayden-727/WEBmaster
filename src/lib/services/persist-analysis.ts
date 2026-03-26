@@ -37,7 +37,7 @@ export async function persistAnalysis(input: PersistInput): Promise<boolean> {
 
     const { error: analysisErr } = await supabase.from("analyses").insert({
       id: input.analysisId,
-      user_id: "00000000-0000-0000-0000-000000000000",
+      user_id: "anonymous",
       url: input.url,
       mode: input.mode,
       status: "completed",

@@ -1,14 +1,8 @@
 create extension if not exists "pgcrypto";
 
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null unique,
-  created_at timestamptz not null default now()
-);
-
 create table if not exists public.analyses (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
+  user_id text not null default 'anonymous',
   url text not null,
   mode text not null check (mode in ('source', 'rendered')),
   status text not null default 'completed' check (status in ('pending', 'running', 'completed', 'failed')),
@@ -98,122 +92,6 @@ create table if not exists public.analysis_lighthouse (
   created_at timestamptz not null default now()
 );
 
-create index if not exists idx_analyses_user_id_created_at on public.analyses(user_id, created_at desc);
+create index if not exists idx_analyses_created_at on public.analyses(created_at desc);
 create index if not exists idx_analysis_links_analysis_id on public.analysis_links(analysis_id);
 create index if not exists idx_analysis_images_analysis_id on public.analysis_images(analysis_id);
-
-alter table public.profiles enable row level security;
-alter table public.analyses enable row level security;
-alter table public.analysis_metadata enable row level security;
-alter table public.analysis_content enable row level security;
-alter table public.analysis_stack enable row level security;
-alter table public.analysis_structure enable row level security;
-alter table public.analysis_links enable row level security;
-alter table public.analysis_images enable row level security;
-alter table public.analysis_lighthouse enable row level security;
-
-create policy "profiles_select_own" on public.profiles for select using (auth.uid() = id);
-create policy "profiles_update_own" on public.profiles for update using (auth.uid() = id);
-
-create policy "analyses_select_own" on public.analyses for select using (auth.uid() = user_id);
-create policy "analyses_insert_own" on public.analyses for insert with check (auth.uid() = user_id);
-create policy "analyses_update_own" on public.analyses for update using (auth.uid() = user_id);
-create policy "analyses_delete_own" on public.analyses for delete using (auth.uid() = user_id);
-
-create policy "analysis_metadata_owner_access" on public.analysis_metadata
-for all using (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-);
-
-create policy "analysis_content_owner_access" on public.analysis_content
-for all using (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-);
-
-create policy "analysis_stack_owner_access" on public.analysis_stack
-for all using (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-);
-
-create policy "analysis_structure_owner_access" on public.analysis_structure
-for all using (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-);
-
-create policy "analysis_links_owner_access" on public.analysis_links
-for all using (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-);
-
-create policy "analysis_images_owner_access" on public.analysis_images
-for all using (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-);
-
-create policy "analysis_lighthouse_owner_access" on public.analysis_lighthouse
-for all using (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-)
-with check (
-  exists (
-    select 1 from public.analyses a
-    where a.id = analysis_id and a.user_id = auth.uid()
-  )
-);
