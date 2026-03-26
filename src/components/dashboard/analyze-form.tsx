@@ -30,13 +30,24 @@ export function AnalyzeForm() {
 
       const data = await res.json();
 
-      if (!res.ok || !data.success) {
+      if (!res.ok) {
         setStatus("error");
-        setErrorMessage(data.error ?? `Request failed with status ${res.status}`);
+        setErrorMessage(data.error ?? `Server error (${res.status})`);
         return;
       }
 
       const typedData = data as AnalyzeApiResponse;
+
+      if (!typedData.success) {
+        const crawlError = typedData.errors?.find((e) => e.section === "crawler");
+        const msg = crawlError
+          ? `Could not fetch the page: ${crawlError.message}`
+          : typedData.errors?.[0]?.message ?? "Analysis failed — the target page could not be reached";
+        setStatus("error");
+        setErrorMessage(msg);
+        return;
+      }
+
       setResult(typedData);
       setStatus("success");
 

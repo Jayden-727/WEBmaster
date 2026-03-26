@@ -25,8 +25,15 @@ export function HeroForm() {
       });
       const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        setError(data.error ?? "Analysis failed");
+      if (!res.ok) {
+        setError(data.error ?? `Server error (${res.status})`);
+        setLoading(false);
+        return;
+      }
+
+      if (!data.success) {
+        const crawlErr = data.errors?.find((e: { section: string }) => e.section === "crawler");
+        setError(crawlErr ? `Could not fetch the page: ${crawlErr.message}` : (data.errors?.[0]?.message ?? "Analysis failed"));
         setLoading(false);
         return;
       }

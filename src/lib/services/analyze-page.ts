@@ -20,6 +20,16 @@ import {
 
 const FETCH_TIMEOUT_MS = 30_000;
 
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br",
+  "Cache-Control": "no-cache",
+  Pragma: "no-cache",
+};
+
 function makeError(section: string, message: string, detail?: string, fallbackUsed?: string): SectionError {
   return { section, message, detail, fallbackUsed, timestamp: new Date().toISOString() };
 }
@@ -79,8 +89,9 @@ export async function analyzePage(input: AnalyzeRequest): Promise<AnalyzeApiResp
 
   const htmlResult = await runAsyncStep("crawler", async () => {
     const res = await fetch(input.url, {
-      headers: { "User-Agent": "AttractiveWebAIBot/0.1 (+https://attractivewebai.local)" },
+      headers: BROWSER_HEADERS,
       signal: controller.signal,
+      redirect: "follow",
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
