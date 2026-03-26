@@ -107,7 +107,11 @@ async function runPageSpeedApi(url: string): Promise<LighthouseFullResult> {
   const timeout = setTimeout(() => controller.abort(), PSI_TIMEOUT_MS);
 
   try {
-    const res = await fetch(endpoint, { signal: controller.signal, cache: "no-store" });
+    const res = await fetch(endpoint, {
+      signal: controller.signal,
+      cache: "no-store",
+      headers: { Referer: "https://attractivewebai.vercel.app" },
+    });
     clearTimeout(timeout);
 
     if (!res.ok) {
