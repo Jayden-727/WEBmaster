@@ -69,7 +69,15 @@
     "crawlComplete": "Crawl complete",
     "redirecting": "Redirecting to results…",
     "pagesCount": "{count} pages",
-    "maxLabel": "{crawled} / {max} max"
+    "maxLabel": "{crawled} / {max} max",
+    "maxProgress": "{crawled} crawled / {discovered} discovered",
+    "modeLabel": "Crawl Mode",
+    "modeAllTitle": "All Pages",
+    "modeAllDesc": "Crawl internal pages up to the configured limit and depth.",
+    "modeMaxTitle": "Max Mode",
+    "modeMaxBadge": "Full Site",
+    "modeMaxDesc": "Crawl the entire site with no fixed page cap. Safe batching and progress tracking.",
+    "maxWarning": "Max Mode will crawl all reachable internal pages. This may take significantly longer for large sites."
   },
   "deepResults": {
     "notFound": "Analysis not found or session expired.",
@@ -77,6 +85,8 @@
     "pagesCrawled": "Pages Crawled",
     "successful": "Successful",
     "maxDepthReached": "Max Depth",
+    "mode": "Mode",
+    "modeAll": "All Pages",
     "inventory": "Inventory",
     "siteStructure": "Site Structure",
     "rawData": "Raw Data",

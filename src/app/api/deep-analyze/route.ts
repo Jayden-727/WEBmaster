@@ -5,8 +5,9 @@ import { isValidHttpUrl } from "@/lib/utils/url";
 
 const schema = z.object({
   url: z.string().min(1),
-  maxPages: z.number().int().min(1).max(50).default(10),
-  maxDepth: z.number().int().min(1).max(5).default(3),
+  mode: z.enum(["all", "max"]).default("all"),
+  maxPages: z.number().int().min(1).max(10000).default(10),
+  maxDepth: z.number().int().min(1).max(20).default(3),
 });
 
 export const maxDuration = 60;
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
         try {
           for await (const event of crawlSite({
             rootUrl: parsed.url,
+            mode: parsed.mode,
             maxPages: parsed.maxPages,
             maxDepth: parsed.maxDepth,
           })) {

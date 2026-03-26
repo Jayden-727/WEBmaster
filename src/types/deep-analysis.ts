@@ -1,5 +1,8 @@
+export type CrawlMode = "all" | "max";
+
 export interface DeepAnalyzeRequest {
   url: string;
+  mode: CrawlMode;
   maxPages: number;
   maxDepth: number;
 }
@@ -8,6 +11,7 @@ export interface DeepAnalyzeContinueRequest {
   jobId: string;
   rootUrl: string;
   domain: string;
+  mode: CrawlMode;
   maxPages: number;
   maxDepth: number;
   queue: QueueItem[];
@@ -50,11 +54,14 @@ export interface DeepAnalysisJob {
   jobId: string;
   rootUrl: string;
   domain: string;
+  mode: CrawlMode;
   maxPages: number;
   maxDepth: number;
   status: "crawling" | "paused" | "completed" | "error";
   pages: CrawledPage[];
   totalDiscovered: number;
+  totalProcessed: number;
+  totalFailed: number;
   startedAt: string;
   completedAt?: string;
 }

@@ -4,8 +4,9 @@ import { crawlSite } from "@/lib/deep-analyzer/site-crawler";
 
 const schema = z.object({
   rootUrl: z.string().min(1),
-  maxPages: z.number().int().min(1).max(50),
-  maxDepth: z.number().int().min(1).max(5),
+  mode: z.enum(["all", "max"]).default("all"),
+  maxPages: z.number().int().min(1).max(10000),
+  maxDepth: z.number().int().min(1).max(20),
   queue: z.array(
     z.object({
       url: z.string(),
@@ -30,6 +31,7 @@ export async function POST(req: NextRequest) {
         try {
           for await (const event of crawlSite({
             rootUrl: parsed.rootUrl,
+            mode: parsed.mode,
             maxPages: parsed.maxPages,
             maxDepth: parsed.maxDepth,
             initialQueue: parsed.queue,

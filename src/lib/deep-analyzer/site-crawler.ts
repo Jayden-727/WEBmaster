@@ -1,4 +1,4 @@
-import type { QueueItem, CrawledPage, CrawlStreamEvent } from "@/types/deep-analysis";
+import type { QueueItem, CrawledPage, CrawlStreamEvent, CrawlMode } from "@/types/deep-analysis";
 import { buildCrawledPage } from "./raw-extractor";
 import { detectPageType } from "./page-type-detector";
 
@@ -13,6 +13,7 @@ const BROWSER_HEADERS: Record<string, string> = {
 const SKIP_EXTENSIONS = /\.(css|js|json|xml|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|pdf|zip|tar|gz|mp[34]|avi|mov|wmv)$/i;
 const PAGE_FETCH_TIMEOUT = 15_000;
 const PAUSE_BUFFER_MS = 5_000;
+const MAX_ABSOLUTE_PAGES = 10_000;
 
 export function extractDomain(url: string): string {
   try {
@@ -80,6 +81,7 @@ async function fetchPage(url: string): Promise<string> {
 
 export interface CrawlOptions {
   rootUrl: string;
+  mode: CrawlMode;
   maxPages: number;
   maxDepth: number;
   initialQueue?: QueueItem[];
@@ -88,11 +90,17 @@ export interface CrawlOptions {
   deadlineMs?: number;
 }
 
+function resolvePageLimit(mode: CrawlMode, maxPages: number): number {
+  if (mode === "max") return MAX_ABSOLUTE_PAGES;
+  return maxPages;
+}
+
 export async function* crawlSite(
   opts: CrawlOptions,
 ): AsyncGenerator<CrawlStreamEvent> {
   const {
     rootUrl,
+    mode,
     maxPages,
     maxDepth,
     initialQueue,
@@ -100,6 +108,9 @@ export async function* crawlSite(
     initialPagesCrawled = 0,
     deadlineMs = 55_000,
   } = opts;
+
+  const effectiveLimit = resolvePageLimit(mode, maxPages);
+  const effectiveDepth = mode === "max" ? Math.max(maxDepth, 10) : maxDepth;
 
   const domain = extractDomain(rootUrl);
   const jobId = crypto.randomUUID();
@@ -118,7 +129,7 @@ export async function* crawlSite(
     yield { type: "started", jobId, rootUrl };
   }
 
-  while (queue.length > 0 && pagesCrawled < maxPages) {
+  while (queue.length > 0 && pagesCrawled < effectiveLimit) {
     if (Date.now() - startTime > deadlineMs - PAUSE_BUFFER_MS) {
       yield {
         type: "paused",
@@ -133,7 +144,7 @@ export async function* crawlSite(
     const normalized = normalizeUrl(item.url);
 
     if (visited.has(normalized)) continue;
-    if (item.depth > maxDepth) continue;
+    if (item.depth > effectiveDepth) continue;
     if (shouldSkipUrl(normalized)) continue;
     if (!isInternalUrl(normalized, domain)) continue;
 
@@ -169,13 +180,13 @@ export async function* crawlSite(
       pagesCrawled++;
       yield { type: "page", page: crawledPage };
 
-      if (pagesCrawled < maxPages) {
+      if (pagesCrawled < effectiveLimit) {
         for (const link of crawledPage.rawLinks) {
           if (!link.isInternal) continue;
           const normLink = normalizeUrl(link.href);
           if (visited.has(normLink)) continue;
           if (shouldSkipUrl(normLink)) continue;
-          if (item.depth + 1 > maxDepth) continue;
+          if (item.depth + 1 > effectiveDepth) continue;
 
           queue.push({
             url: normLink,

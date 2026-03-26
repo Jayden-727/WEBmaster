@@ -146,6 +146,11 @@ export default function DeepAnalysisPage({
             <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-purple-300">
               DeepAnalyzer
             </span>
+            {job.mode === "max" && (
+              <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase text-amber-300">
+                MAX
+              </span>
+            )}
             <span className="rounded-full bg-green-500/15 px-2.5 py-0.5 text-[10px] font-medium text-green-300">
               {job.status}
             </span>
@@ -155,7 +160,7 @@ export default function DeepAnalysisPage({
           </h1>
           <p className="mt-1 text-xs text-slate-500">{job.domain}</p>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3">
             <SummaryCard label={t("deepResults.pagesCrawled")} value={job.pages.length} />
             <SummaryCard label={t("deepResults.successful")} value={successPages.length} color="text-green-400" />
             <SummaryCard label={t("common.errors")} value={errorPages.length} color="text-red-400" />
@@ -163,6 +168,7 @@ export default function DeepAnalysisPage({
               label={t("deepResults.maxDepthReached")}
               value={Math.max(0, ...job.pages.map((p) => p.depth))}
             />
+            <SummaryCard label={t("deepResults.mode")} value={job.mode === "max" ? "MAX" : t("deepResults.modeAll")} />
           </div>
 
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -320,7 +326,7 @@ function SummaryCard({
   color = "text-white",
 }: {
   label: string;
-  value: number;
+  value: number | string;
   color?: string;
 }) {
   return (
