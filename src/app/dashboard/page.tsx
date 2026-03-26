@@ -1,8 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { AnalyzeForm } from "@/components/dashboard/analyze-form";
 import { DeepAnalyzerForm } from "@/components/dashboard/deep-analyzer-form";
 import { RecentAnalysesList } from "@/components/dashboard/recent-analyses";
 import { QuickActionsSection } from "@/components/dashboard/quick-actions";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useT } from "@/lib/i18n";
 import {
   Globe,
   ArrowLeft,
@@ -45,6 +49,7 @@ export default function DashboardPage() {
 /* ─── Dashboard Nav ─── */
 
 function DashboardNav() {
+  const t = useT();
   return (
     <nav className="sticky top-0 z-40 border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
@@ -53,20 +58,23 @@ function DashboardNav() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500">
               <Globe className="h-4 w-4 text-white" />
             </div>
-            <span className="text-base font-bold tracking-tight sm:text-lg">AttractiveWebAI</span>
+            <span className="text-base font-bold tracking-tight sm:text-lg">{t("nav.brand")}</span>
           </Link>
           <span className="hidden text-slate-700 sm:inline">/</span>
-          <span className="hidden text-sm text-slate-400 sm:inline">Dashboard</span>
+          <span className="hidden text-sm text-slate-400 sm:inline">{t("common.dashboard")}</span>
         </div>
 
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-700 hover:text-white active:bg-slate-800 sm:text-sm"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Back to Home</span>
-          <span className="sm:hidden">Home</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-700 hover:text-white active:bg-slate-800 sm:text-sm"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{t("common.backToHome")}</span>
+            <span className="sm:hidden">{t("common.home")}</span>
+          </Link>
+        </div>
       </div>
     </nav>
   );
@@ -75,9 +83,9 @@ function DashboardNav() {
 /* ─── Hero Analyze Card ─── */
 
 function HeroAnalyzeCard() {
+  const t = useT();
   return (
     <section className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-      {/* Background decoration */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -right-20 -top-20 h-[300px] w-[300px] rounded-full bg-indigo-500/8 blur-3xl" />
         <div className="absolute -bottom-10 -left-10 h-[200px] w-[300px] rounded-full bg-purple-500/5 blur-3xl" />
@@ -95,14 +103,13 @@ function HeroAnalyzeCard() {
         <div className="mb-5 sm:mb-6">
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-[11px] font-medium text-indigo-300 sm:text-xs">
             <Sparkles className="h-3 w-3" />
-            Website Intelligence
+            {t("dashboard.websiteIntelligence")}
           </div>
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">
-            Analyze any website
+            {t("dashboard.analyzeTitle")}
           </h1>
           <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-slate-400 sm:mt-2 sm:text-sm">
-            Enter any public URL to inspect metadata, structure, technology stack,
-            content, links, images, and Lighthouse performance — all in one place.
+            {t("dashboard.analyzeDescription")}
           </p>
         </div>
         <AnalyzeForm />
@@ -114,6 +121,7 @@ function HeroAnalyzeCard() {
 /* ─── DeepAnalyzer Card ─── */
 
 function DeepAnalyzerCard() {
+  const t = useT();
   return (
     <section className="relative overflow-hidden rounded-2xl border border-purple-800/30 bg-gradient-to-br from-slate-900 via-slate-900 to-purple-950/30">
       <div className="pointer-events-none absolute inset-0">
@@ -125,13 +133,13 @@ function DeepAnalyzerCard() {
         <div className="mb-4 sm:mb-5">
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-[11px] font-medium text-purple-300 sm:text-xs">
             <Layers className="h-3 w-3" />
-            Multi-Page Crawl & IA Analysis
+            {t("deepAnalyzer.badge")}
           </div>
           <h2 className="text-lg font-bold tracking-tight sm:text-xl md:text-2xl">
-            DeepAnalyzer
+            {t("deepAnalyzer.title")}
           </h2>
           <p className="mt-1.5 max-w-xl text-xs leading-relaxed text-slate-400 sm:text-sm">
-            Crawl entire sites to build a page inventory, visualize site structure, and generate refined Markdown reports on demand.
+            {t("deepAnalyzer.description")}
           </p>
         </div>
         <DeepAnalyzerForm />
@@ -143,18 +151,19 @@ function DeepAnalyzerCard() {
 /* ─── Recent Analyses Section ─── */
 
 function RecentSection() {
+  const t = useT();
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 sm:p-5">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-slate-500" />
-          <h2 className="text-sm font-semibold text-white sm:text-base">Recent Analyses</h2>
+          <h2 className="text-sm font-semibold text-white sm:text-base">{t("dashboard.recentAnalyses")}</h2>
         </div>
         <Link
           href="/history"
           className="text-[11px] text-indigo-400 transition hover:text-indigo-300 sm:text-xs"
         >
-          View all →
+          {t("common.viewAll")}
         </Link>
       </div>
       <RecentAnalysesList />
@@ -165,25 +174,27 @@ function RecentSection() {
 /* ─── Capabilities Section ─── */
 
 function CapabilitiesSection() {
+  const t = useT();
+
   const modules = [
-    { icon: LayoutDashboard, label: "Overview", color: "text-indigo-400" },
-    { icon: FileText, label: "Metadata", color: "text-blue-400" },
-    { icon: Database, label: "Content", color: "text-cyan-400" },
-    { icon: Code2, label: "Stack", color: "text-purple-400" },
-    { icon: Grid3X3, label: "Structure", color: "text-pink-400" },
-    { icon: Link2, label: "Links", color: "text-amber-400" },
-    { icon: ImageIcon, label: "Images", color: "text-emerald-400" },
-    { icon: Gauge, label: "Lighthouse", color: "text-orange-400" },
+    { icon: LayoutDashboard, label: t("dashboard.overview"), color: "text-indigo-400" },
+    { icon: FileText, label: t("dashboard.metadata"), color: "text-blue-400" },
+    { icon: Database, label: t("dashboard.content"), color: "text-cyan-400" },
+    { icon: Code2, label: t("dashboard.stack"), color: "text-purple-400" },
+    { icon: Grid3X3, label: t("dashboard.structure"), color: "text-pink-400" },
+    { icon: Link2, label: t("dashboard.links"), color: "text-amber-400" },
+    { icon: ImageIcon, label: t("dashboard.images"), color: "text-emerald-400" },
+    { icon: Gauge, label: t("dashboard.lighthouse"), color: "text-orange-400" },
   ];
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 sm:p-5">
       <div className="mb-4 flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-slate-500" />
-        <h2 className="text-sm font-semibold text-white sm:text-base">Analysis Modules</h2>
+        <h2 className="text-sm font-semibold text-white sm:text-base">{t("dashboard.analysisModules")}</h2>
       </div>
       <p className="mb-4 text-[11px] leading-relaxed text-slate-500 sm:text-xs">
-        Every analysis runs all eight modules simultaneously, delivering a comprehensive intelligence report.
+        {t("dashboard.modulesDescription")}
       </p>
       <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
         {modules.map(({ icon: Icon, label, color }) => (

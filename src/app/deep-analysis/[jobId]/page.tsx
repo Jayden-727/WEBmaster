@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Globe,
-  Layers,
   List,
   Network,
   FileCode,
@@ -17,14 +16,19 @@ import {
   Search,
   Check,
   AlertTriangle,
+  Download,
+  Layers,
 } from "lucide-react";
 import type {
   DeepAnalysisJob,
   CrawledPage,
   RefinedPage,
 } from "@/types/deep-analysis";
+import { useT } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
-type Tab = "inventory" | "structure" | "raw" | "refinement";
+type Tab = "inventory" | "structure" | "raw" | "refinement" | "export";
+type TargetScope = "all" | "single";
 
 const PAGE_TYPE_COLORS: Record<string, string> = {
   homepage: "bg-indigo-500/15 text-indigo-300",
@@ -44,17 +48,18 @@ export default function DeepAnalysisPage({
   params: Promise<{ jobId: string }>;
 }) {
   const { jobId } = use(params);
+  const t = useT();
   const [job, setJob] = useState<DeepAnalysisJob | null>(null);
   const [tab, setTab] = useState<Tab>("inventory");
   const [refinedPages, setRefinedPages] = useState<RefinedPage[]>([]);
   const [refining, setRefining] = useState(false);
+  const [targetScope, setTargetScope] = useState<TargetScope>("all");
+  const [selectedPageUrl, setSelectedPageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     try {
       const stored = sessionStorage.getItem(`deep-analysis:${jobId}`);
-      if (stored) {
-        setJob(JSON.parse(stored));
-      }
+      if (stored) setJob(JSON.parse(stored));
     } catch {}
   }, [jobId]);
 
@@ -62,34 +67,46 @@ export default function DeepAnalysisPage({
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
         <AlertTriangle className="h-8 w-8 text-slate-500" />
-        <p className="text-sm text-slate-400">Analysis not found or session expired.</p>
+        <p className="text-sm text-slate-400">{t("deepResults.notFound")}</p>
         <Link
           href="/dashboard"
           className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
-          Back to Dashboard
+          {t("deepResults.backToDashboard")}
         </Link>
       </div>
     );
   }
 
   const tabs: { id: Tab; label: string; icon: typeof List }[] = [
-    { id: "inventory", label: "Inventory", icon: List },
-    { id: "structure", label: "Site Structure", icon: Network },
-    { id: "raw", label: "Raw Data", icon: FileCode },
-    { id: "refinement", label: "Refinement", icon: FileText },
+    { id: "inventory", label: t("deepResults.inventory"), icon: List },
+    { id: "structure", label: t("deepResults.siteStructure"), icon: Network },
+    { id: "raw", label: t("deepResults.rawData"), icon: FileCode },
+    { id: "refinement", label: t("deepResults.refinement"), icon: FileText },
+    { id: "export", label: t("export.title"), icon: Download },
   ];
 
   const successPages = job.pages.filter((p) => p.status === "success");
   const errorPages = job.pages.filter((p) => p.status === "error");
   const typeStats = job.pages.reduce(
     (acc, p) => {
-      const t = p.pageTypeGuess ?? "other";
-      acc[t] = (acc[t] ?? 0) + 1;
+      const tp = p.pageTypeGuess ?? "other";
+      acc[tp] = (acc[tp] ?? 0) + 1;
       return acc;
     },
     {} as Record<string, number>,
   );
+
+  const selectedPage = selectedPageUrl
+    ? job.pages.find((p) => p.url === selectedPageUrl) ?? null
+    : null;
+
+  const targetPages =
+    targetScope === "all"
+      ? job.pages
+      : selectedPage
+        ? [selectedPage]
+        : [];
 
   return (
     <div className="min-h-screen">
@@ -101,19 +118,22 @@ export default function DeepAnalysisPage({
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500">
                 <Globe className="h-4 w-4 text-white" />
               </div>
-              <span className="text-base font-bold tracking-tight sm:text-lg">AttractiveWebAI</span>
+              <span className="text-base font-bold tracking-tight sm:text-lg">{t("nav.brand")}</span>
             </Link>
             <span className="hidden text-slate-700 sm:inline">/</span>
             <span className="hidden text-sm text-slate-400 sm:inline">DeepAnalyzer</span>
           </div>
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-700 hover:text-white sm:text-sm"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Dashboard</span>
-            <span className="sm:hidden">Back</span>
-          </Link>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2 text-xs text-slate-400 transition hover:border-slate-700 hover:text-white sm:text-sm"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{t("common.dashboard")}</span>
+              <span className="sm:hidden">{t("common.back")}</span>
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -133,18 +153,16 @@ export default function DeepAnalysisPage({
           </h1>
           <p className="mt-1 text-xs text-slate-500">{job.domain}</p>
 
-          {/* Summary cards */}
           <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-            <SummaryCard label="Pages Crawled" value={job.pages.length} />
-            <SummaryCard label="Successful" value={successPages.length} color="text-green-400" />
-            <SummaryCard label="Errors" value={errorPages.length} color="text-red-400" />
+            <SummaryCard label={t("deepResults.pagesCrawled")} value={job.pages.length} />
+            <SummaryCard label={t("deepResults.successful")} value={successPages.length} color="text-green-400" />
+            <SummaryCard label={t("common.errors")} value={errorPages.length} color="text-red-400" />
             <SummaryCard
-              label="Max Depth"
+              label={t("deepResults.maxDepthReached")}
               value={Math.max(0, ...job.pages.map((p) => p.depth))}
             />
           </div>
 
-          {/* Type breakdown */}
           <div className="mt-3 flex flex-wrap gap-1.5">
             {Object.entries(typeStats).map(([type, count]) => (
               <span
@@ -156,6 +174,15 @@ export default function DeepAnalysisPage({
             ))}
           </div>
         </div>
+
+        {/* Target scope selector */}
+        <TargetScopeSelector
+          scope={targetScope}
+          setScope={setTargetScope}
+          selectedPageUrl={selectedPageUrl}
+          setSelectedPageUrl={setSelectedPageUrl}
+          pages={job.pages}
+        />
 
         {/* Tabs */}
         <div className="mb-6 flex gap-1 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/50 p-1">
@@ -175,20 +202,111 @@ export default function DeepAnalysisPage({
           ))}
         </div>
 
-        {/* Tab content */}
-        {tab === "inventory" && <InventoryTab pages={job.pages} />}
+        {tab === "inventory" && (
+          <InventoryTab
+            pages={targetPages}
+            onSelectPage={(url) => {
+              setSelectedPageUrl(url);
+              setTargetScope("single");
+            }}
+          />
+        )}
         {tab === "structure" && <StructureTab pages={job.pages} rootUrl={job.rootUrl} />}
-        {tab === "raw" && <RawDataTab pages={job.pages} />}
+        {tab === "raw" && <RawDataTab pages={targetPages} />}
         {tab === "refinement" && (
           <RefinementTab
-            pages={job.pages}
+            pages={targetPages}
+            allPages={job.pages}
+            scope={targetScope}
             refinedPages={refinedPages}
             setRefinedPages={setRefinedPages}
             refining={refining}
             setRefining={setRefining}
           />
         )}
+        {tab === "export" && (
+          <ExportTab
+            pages={targetPages}
+            allPages={job.pages}
+            rootUrl={job.rootUrl}
+            scope={targetScope}
+            selectedPageUrl={selectedPageUrl}
+            refinedPages={refinedPages}
+          />
+        )}
       </main>
+    </div>
+  );
+}
+
+/* ─── Target Scope Selector ─── */
+
+function TargetScopeSelector({
+  scope,
+  setScope,
+  selectedPageUrl,
+  setSelectedPageUrl,
+  pages,
+}: {
+  scope: TargetScope;
+  setScope: (s: TargetScope) => void;
+  selectedPageUrl: string | null;
+  setSelectedPageUrl: (u: string | null) => void;
+  pages: CrawledPage[];
+}) {
+  const t = useT();
+  const successPages = pages.filter((p) => p.status === "success");
+
+  return (
+    <div className="mb-4 rounded-lg border border-slate-800 bg-slate-900/50 p-3 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-slate-500" />
+          <span className="text-xs font-semibold text-slate-400 sm:text-sm">{t("targetScope.label")}:</span>
+        </div>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => setScope("all")}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition sm:text-sm ${
+              scope === "all"
+                ? "bg-purple-500/15 text-purple-300 ring-1 ring-purple-500/30"
+                : "bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-300"
+            }`}
+          >
+            <List className="h-3.5 w-3.5" />
+            {t("export.allPagesCount", { count: successPages.length })}
+          </button>
+          <button
+            onClick={() => setScope("single")}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition sm:text-sm ${
+              scope === "single"
+                ? "bg-indigo-500/15 text-indigo-300 ring-1 ring-indigo-500/30"
+                : "bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-300"
+            }`}
+          >
+            <FileText className="h-3.5 w-3.5" />
+            {t("targetScope.single")}
+          </button>
+        </div>
+        {scope === "single" && (
+          <select
+            value={selectedPageUrl ?? ""}
+            onChange={(e) => setSelectedPageUrl(e.target.value || null)}
+            className="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none sm:text-sm"
+          >
+            <option value="">{t("targetScope.selectPage")}</option>
+            {pages.map((p) => {
+              let pathname = "/";
+              try { pathname = new URL(p.url).pathname || "/"; } catch {}
+              return (
+                <option key={p.url} value={p.url}>
+                  {pathname} {p.title ? `— ${p.title}` : ""}
+                </option>
+              );
+            })}
+          </select>
+        )}
+      </div>
     </div>
   );
 }
@@ -212,7 +330,14 @@ function SummaryCard({
 
 /* ─── Inventory Tab ─── */
 
-function InventoryTab({ pages }: { pages: CrawledPage[] }) {
+function InventoryTab({
+  pages,
+  onSelectPage,
+}: {
+  pages: CrawledPage[];
+  onSelectPage: (url: string) => void;
+}) {
+  const t = useT();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
@@ -237,14 +362,13 @@ function InventoryTab({ pages }: { pages: CrawledPage[] }) {
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by URL or title…"
+            placeholder={t("deepResults.filterPlaceholder")}
             className="w-full rounded-lg border border-slate-800 bg-slate-950 py-2 pl-9 pr-3 text-xs text-white placeholder:text-slate-500 focus:border-slate-700 focus:outline-none sm:text-sm"
           />
         </div>
@@ -253,51 +377,42 @@ function InventoryTab({ pages }: { pages: CrawledPage[] }) {
           onChange={(e) => setTypeFilter(e.target.value)}
           className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:outline-none sm:text-sm"
         >
-          {types.map((t) => (
-            <option key={t} value={t}>
-              {t === "all" ? "All Types" : t}
+          {types.map((tp) => (
+            <option key={tp} value={tp}>
+              {tp === "all" ? t("common.allTypes") : tp}
             </option>
           ))}
         </select>
       </div>
 
-      {/* Page table */}
       <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/50">
         <table className="w-full text-left text-xs sm:text-sm">
           <thead className="border-b border-slate-800 bg-slate-900">
             <tr>
               <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">#</th>
-              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">URL</th>
-              <th className="hidden px-3 py-2.5 font-medium text-slate-400 sm:table-cell sm:px-4">Title</th>
-              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">Type</th>
-              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">Depth</th>
-              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">Status</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">{t("common.url")}</th>
+              <th className="hidden px-3 py-2.5 font-medium text-slate-400 sm:table-cell sm:px-4">{t("common.title")}</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">{t("common.type")}</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">{t("common.depth")}</th>
+              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">{t("common.status")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
             {filtered.map((p, i) => (
               <tr
                 key={p.url}
-                className="transition hover:bg-slate-800/30"
+                onClick={() => onSelectPage(p.url)}
+                className="cursor-pointer transition hover:bg-slate-800/30"
               >
                 <td className="px-3 py-2.5 text-slate-500 sm:px-4">{i + 1}</td>
                 <td className="max-w-[200px] truncate px-3 py-2.5 sm:max-w-[350px] sm:px-4">
-                  <a
-                    href={p.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-indigo-400 hover:text-indigo-300 hover:underline"
-                  >
-                    {new URL(p.url).pathname || "/"}
-                  </a>
+                  <span className="text-indigo-400">{(() => { try { return new URL(p.url).pathname || "/"; } catch { return p.url; } })()}</span>
                 </td>
                 <td className="hidden max-w-[200px] truncate px-3 py-2.5 text-slate-300 sm:table-cell sm:px-4">
                   {p.title ?? "—"}
                 </td>
                 <td className="px-3 py-2.5 sm:px-4">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${PAGE_TYPE_COLORS[p.pageTypeGuess ?? "other"] ?? PAGE_TYPE_COLORS.other}`}
-                  >
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${PAGE_TYPE_COLORS[p.pageTypeGuess ?? "other"] ?? PAGE_TYPE_COLORS.other}`}>
                     {p.pageTypeGuess ?? "other"}
                   </span>
                 </td>
@@ -314,7 +429,7 @@ function InventoryTab({ pages }: { pages: CrawledPage[] }) {
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-slate-500">No pages match filter.</p>
+          <p className="px-4 py-8 text-center text-sm text-slate-500">{t("deepResults.noPagesMatch")}</p>
         )}
       </div>
     </div>
@@ -324,19 +439,18 @@ function InventoryTab({ pages }: { pages: CrawledPage[] }) {
 /* ─── Structure Tab ─── */
 
 function StructureTab({ pages, rootUrl }: { pages: CrawledPage[]; rootUrl: string }) {
+  const t = useT();
   const tree = useMemo(() => buildTree(pages, rootUrl), [pages, rootUrl]);
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-slate-500 sm:text-sm">
-        Visual hierarchy based on crawl depth and parent-child link relationships.
-      </p>
+      <p className="text-xs text-slate-500 sm:text-sm">{t("deepResults.structureDescription")}</p>
       <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3 sm:p-5">
         {tree.map((node) => (
           <TreeNode key={node.url} node={node} />
         ))}
         {tree.length === 0 && (
-          <p className="py-6 text-center text-sm text-slate-500">No structure data available.</p>
+          <p className="py-6 text-center text-sm text-slate-500">{t("deepResults.noStructure")}</p>
         )}
       </div>
     </div>
@@ -351,7 +465,7 @@ interface TreeNodeData {
   children: TreeNodeData[];
 }
 
-function buildTree(pages: CrawledPage[], rootUrl: string): TreeNodeData[] {
+function buildTree(pages: CrawledPage[], _rootUrl: string): TreeNodeData[] {
   const byUrl = new Map<string, CrawledPage>();
   for (const p of pages) byUrl.set(p.url, p);
 
@@ -369,17 +483,10 @@ function buildTree(pages: CrawledPage[], rootUrl: string): TreeNodeData[] {
 
   function toNode(p: CrawledPage): TreeNodeData {
     const children = (childMap.get(p.url) ?? []).map(toNode);
-    return {
-      url: p.url,
-      title: p.title,
-      pageTypeGuess: p.pageTypeGuess,
-      depth: p.depth,
-      children,
-    };
+    return { url: p.url, title: p.title, pageTypeGuess: p.pageTypeGuess, depth: p.depth, children };
   }
 
-  const roots = pages.filter((p) => !hasParent.has(p.url));
-  return roots.map(toNode);
+  return pages.filter((p) => !hasParent.has(p.url)).map(toNode);
 }
 
 function TreeNode({ node }: { node: TreeNodeData }) {
@@ -390,7 +497,7 @@ function TreeNode({ node }: { node: TreeNodeData }) {
   try { pathname = new URL(node.url).pathname || "/"; } catch {}
 
   return (
-    <div className="ml-0" style={{ paddingLeft: `${node.depth * 16}px` }}>
+    <div style={{ paddingLeft: `${node.depth * 16}px` }}>
       <div className="flex items-center gap-1.5 py-1.5">
         {hasChildren ? (
           <button onClick={() => setOpen(!open)} className="shrink-0 text-slate-500 hover:text-slate-300">
@@ -399,21 +506,14 @@ function TreeNode({ node }: { node: TreeNodeData }) {
         ) : (
           <span className="w-3.5" />
         )}
-        <a
-          href={node.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="min-w-0 truncate text-xs text-indigo-400 hover:text-indigo-300 hover:underline sm:text-sm"
-        >
+        <a href={node.url} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-xs text-indigo-400 hover:text-indigo-300 hover:underline sm:text-sm">
           {pathname}
         </a>
         <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${typeCls}`}>
           {node.pageTypeGuess ?? "other"}
         </span>
         {node.title && (
-          <span className="hidden truncate text-[11px] text-slate-500 sm:inline">
-            — {node.title}
-          </span>
+          <span className="hidden truncate text-[11px] text-slate-500 sm:inline">— {node.title}</span>
         )}
       </div>
       {open && node.children.map((child) => <TreeNode key={child.url} node={child} />)}
@@ -424,19 +524,21 @@ function TreeNode({ node }: { node: TreeNodeData }) {
 /* ─── Raw Data Tab ─── */
 
 function RawDataTab({ pages }: { pages: CrawledPage[] }) {
+  const t = useT();
   return (
     <div className="space-y-3">
       {pages.map((p) => (
         <RawPageCard key={p.url} page={p} />
       ))}
       {pages.length === 0 && (
-        <p className="py-8 text-center text-sm text-slate-500">No pages available.</p>
+        <p className="py-8 text-center text-sm text-slate-500">{t("deepResults.noPages")}</p>
       )}
     </div>
   );
 }
 
 function RawPageCard({ page }: { page: CrawledPage }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   let pathname = "/";
@@ -451,26 +553,11 @@ function RawPageCard({ page }: { page: CrawledPage }) {
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/50">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-2 px-3 py-3 text-left sm:px-4"
-      >
-        {open ? (
-          <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" />
-        ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
-        )}
-        <span className="min-w-0 flex-1 truncate text-xs font-medium text-white sm:text-sm">
-          {pathname}
-        </span>
-        {page.status === "success" ? (
-          <Check className="h-3.5 w-3.5 shrink-0 text-green-400" />
-        ) : (
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-400" />
-        )}
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${PAGE_TYPE_COLORS[page.pageTypeGuess ?? "other"] ?? PAGE_TYPE_COLORS.other}`}
-        >
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-3 text-left sm:px-4">
+        {open ? <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" /> : <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />}
+        <span className="min-w-0 flex-1 truncate text-xs font-medium text-white sm:text-sm">{pathname}</span>
+        {page.status === "success" ? <Check className="h-3.5 w-3.5 shrink-0 text-green-400" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-400" />}
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${PAGE_TYPE_COLORS[page.pageTypeGuess ?? "other"] ?? PAGE_TYPE_COLORS.other}`}>
           {page.pageTypeGuess ?? "other"}
         </span>
       </button>
@@ -478,37 +565,27 @@ function RawPageCard({ page }: { page: CrawledPage }) {
       {open && (
         <div className="border-t border-slate-800 px-3 pb-4 pt-3 sm:px-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <a
-              href={page.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-xs text-indigo-400 hover:underline"
-            >
+            <a href={page.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-indigo-400 hover:underline">
               {page.url} <ExternalLink className="h-3 w-3" />
             </a>
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1 rounded-md bg-slate-800 px-2 py-1 text-[10px] text-slate-400 hover:bg-slate-700 hover:text-white"
-            >
+            <button onClick={handleCopy} className="flex items-center gap-1 rounded-md bg-slate-800 px-2 py-1 text-[10px] text-slate-400 hover:bg-slate-700 hover:text-white">
               <Copy className="h-3 w-3" />
-              {copied ? "Copied!" : "Copy JSON"}
+              {copied ? t("common.copied") : t("deepResults.copyJson")}
             </button>
           </div>
 
           {page.error && (
-            <div className="mb-3 rounded-md border border-red-800/40 bg-red-950/30 p-2 text-xs text-red-300">
-              {page.error}
-            </div>
+            <div className="mb-3 rounded-md border border-red-800/40 bg-red-950/30 p-2 text-xs text-red-300">{page.error}</div>
           )}
 
           {page.title && (
-            <DataSection title="Title">
+            <DataSection title={t("common.title")}>
               <p className="text-xs text-slate-300 sm:text-sm">{page.title}</p>
             </DataSection>
           )}
 
           {Object.keys(page.rawMetadata).length > 0 && (
-            <DataSection title="Metadata">
+            <DataSection title={t("deepResults.metadata")}>
               <div className="grid gap-1">
                 {Object.entries(page.rawMetadata).map(([k, v]) => (
                   <div key={k} className="flex gap-2 text-xs">
@@ -521,7 +598,7 @@ function RawPageCard({ page }: { page: CrawledPage }) {
           )}
 
           {page.rawHeadings.length > 0 && (
-            <DataSection title={`Headings (${page.rawHeadings.length})`}>
+            <DataSection title={`${t("deepResults.headings")} (${page.rawHeadings.length})`}>
               <div className="space-y-0.5">
                 {page.rawHeadings.map((h, i) => (
                   <p key={i} className="text-xs text-slate-300" style={{ paddingLeft: `${(h.level - 1) * 12}px` }}>
@@ -533,33 +610,27 @@ function RawPageCard({ page }: { page: CrawledPage }) {
           )}
 
           {page.rawLinks.length > 0 && (
-            <DataSection title={`Links (${page.rawLinks.length})`}>
+            <DataSection title={`${t("dashboard.links")} (${page.rawLinks.length})`}>
               <div className="max-h-[200px] space-y-0.5 overflow-y-auto">
                 {page.rawLinks.slice(0, 30).map((l, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-xs">
                     <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${l.isInternal ? "bg-blue-500/15 text-blue-300" : "bg-slate-500/15 text-slate-400"}`}>
-                      {l.isInternal ? "int" : "ext"}
+                      {l.isInternal ? t("deepResults.int") : t("deepResults.ext")}
                     </span>
-                    <a href={l.href} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-indigo-400 hover:underline">
-                      {l.href}
-                    </a>
+                    <a href={l.href} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-indigo-400 hover:underline">{l.href}</a>
                   </div>
                 ))}
-                {page.rawLinks.length > 30 && (
-                  <p className="text-[11px] text-slate-500">+{page.rawLinks.length - 30} more</p>
-                )}
+                {page.rawLinks.length > 30 && <p className="text-[11px] text-slate-500">+{page.rawLinks.length - 30} more</p>}
               </div>
             </DataSection>
           )}
 
           {page.rawImages.length > 0 && (
-            <DataSection title={`Images (${page.rawImages.length})`}>
+            <DataSection title={`${t("dashboard.images")} (${page.rawImages.length})`}>
               <div className="max-h-[200px] space-y-0.5 overflow-y-auto">
                 {page.rawImages.slice(0, 20).map((img, i) => (
                   <div key={i} className="flex items-center gap-1.5 text-xs">
-                    <a href={img.src} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-indigo-400 hover:underline">
-                      {img.src}
-                    </a>
+                    <a href={img.src} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-indigo-400 hover:underline">{img.src}</a>
                     {img.alt && <span className="shrink-0 text-slate-500">(alt: {img.alt})</span>}
                   </div>
                 ))}
@@ -568,10 +639,8 @@ function RawPageCard({ page }: { page: CrawledPage }) {
           )}
 
           {page.rawTextPreview && (
-            <DataSection title="Text Preview">
-              <p className="whitespace-pre-wrap text-xs leading-relaxed text-slate-400">
-                {page.rawTextPreview}
-              </p>
+            <DataSection title={t("deepResults.textPreview")}>
+              <p className="whitespace-pre-wrap text-xs leading-relaxed text-slate-400">{page.rawTextPreview}</p>
             </DataSection>
           )}
         </div>
@@ -583,9 +652,7 @@ function RawPageCard({ page }: { page: CrawledPage }) {
 function DataSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-3">
-      <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-        {title}
-      </h4>
+      <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{title}</h4>
       {children}
     </div>
   );
@@ -595,18 +662,26 @@ function DataSection({ title, children }: { title: string; children: React.React
 
 function RefinementTab({
   pages,
+  allPages,
+  scope,
   refinedPages,
   setRefinedPages,
   refining,
   setRefining,
 }: {
   pages: CrawledPage[];
+  allPages: CrawledPage[];
+  scope: TargetScope;
   refinedPages: RefinedPage[];
   setRefinedPages: (p: RefinedPage[]) => void;
   refining: boolean;
   setRefining: (b: boolean) => void;
 }) {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
+
+  const targetForRefine = scope === "all" ? allPages : pages;
+  const successCount = targetForRefine.filter((p) => p.status === "success").length;
 
   const handleRefine = useCallback(async () => {
     setRefining(true);
@@ -615,7 +690,7 @@ function RefinementTab({
       const res = await fetch("/api/deep-analyze/refine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pages: pages.filter((p) => p.status === "success") }),
+        body: JSON.stringify({ pages: targetForRefine.filter((p) => p.status === "success") }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -624,24 +699,31 @@ function RefinementTab({
       const data = await res.json();
       setRefinedPages(data.pages ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Refinement failed");
+      setError(err instanceof Error ? err.message : t("refinement.refinementFailed"));
     } finally {
       setRefining(false);
     }
-  }, [pages, setRefinedPages, setRefining]);
-
-  const successCount = pages.filter((p) => p.status === "success").length;
+  }, [targetForRefine, setRefinedPages, setRefining, t]);
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4 sm:p-6">
         <h3 className="text-sm font-semibold text-white sm:text-base">
-          Refine All Pages
+          {scope === "all" ? t("refinement.refineAllPages") : t("refinement.refineSinglePage")}
         </h3>
         <p className="mt-1 text-xs text-slate-400 sm:text-sm">
-          Generate cleaned Markdown reports for all {successCount} successfully crawled pages.
-          This processes raw HTML data into a structured, readable format.
+          {t("refinement.refineAllDescription", { count: successCount })}
         </p>
+
+        {/* Agent-friendly note */}
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-purple-800/30 bg-purple-950/20 p-2.5">
+          <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-purple-400" />
+          <div>
+            <p className="text-[11px] font-medium text-purple-300">{t("export.agentFriendly")}</p>
+            <p className="mt-0.5 text-[10px] leading-relaxed text-slate-500">{t("export.agentFriendlyNote")}</p>
+          </div>
+        </div>
+
         <button
           onClick={handleRefine}
           disabled={refining || successCount === 0}
@@ -650,24 +732,24 @@ function RefinementTab({
           {refining ? (
             <>
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Refining…
+              {t("refinement.refining")}
             </>
           ) : (
             <>
               <FileText className="h-4 w-4" />
-              Refine All Pages ({successCount})
+              {scope === "all"
+                ? `${t("refinement.refineAllPages")} (${successCount})`
+                : t("refinement.refineSinglePage")}
             </>
           )}
         </button>
-        {error && (
-          <p className="mt-2 text-xs text-red-400">{error}</p>
-        )}
+        {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
       </div>
 
       {refinedPages.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-white">
-            Refined Output ({refinedPages.length} pages)
+            {t("refinement.refinedOutput", { count: refinedPages.length })}
           </h3>
           {refinedPages.map((rp) => (
             <RefinedPageCard key={rp.url} refined={rp} />
@@ -679,6 +761,7 @@ function RefinementTab({
 }
 
 function RefinedPageCard({ refined }: { refined: RefinedPage }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   let pathname = "/";
@@ -686,17 +769,14 @@ function RefinedPageCard({ refined }: { refined: RefinedPage }) {
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/50">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-2 px-3 py-3 text-left sm:px-4"
-      >
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-3 text-left sm:px-4">
         {open ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
         <FileText className="h-3.5 w-3.5 text-purple-400" />
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-white sm:text-sm">{pathname}</span>
       </button>
       {open && (
         <div className="border-t border-slate-800 px-3 pb-4 pt-3 sm:px-4">
-          <div className="mb-2 flex items-center gap-2">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
             <button
               onClick={() => {
                 navigator.clipboard.writeText(refined.markdown).then(() => {
@@ -707,7 +787,14 @@ function RefinedPageCard({ refined }: { refined: RefinedPage }) {
               className="flex items-center gap-1 rounded-md bg-slate-800 px-2 py-1 text-[10px] text-slate-400 hover:bg-slate-700 hover:text-white"
             >
               <Copy className="h-3 w-3" />
-              {copied ? "Copied!" : "Copy Markdown"}
+              {copied ? t("common.copied") : t("refinement.copyMarkdown")}
+            </button>
+            <button
+              onClick={() => downloadText(refined.markdown, `${pathname.replace(/\//g, "_").replace(/^_/, "") || "page"}.md`)}
+              className="flex items-center gap-1 rounded-md bg-slate-800 px-2 py-1 text-[10px] text-slate-400 hover:bg-slate-700 hover:text-white"
+            >
+              <Download className="h-3 w-3" />
+              {t("export.downloadSingleMd")}
             </button>
           </div>
           <pre className="max-h-[400px] overflow-auto rounded-md bg-slate-950 p-3 text-xs leading-relaxed text-slate-300">
@@ -717,4 +804,168 @@ function RefinedPageCard({ refined }: { refined: RefinedPage }) {
       )}
     </div>
   );
+}
+
+/* ─── Export Tab ─── */
+
+function ExportTab({
+  pages,
+  allPages,
+  rootUrl,
+  scope,
+  selectedPageUrl,
+  refinedPages,
+}: {
+  pages: CrawledPage[];
+  allPages: CrawledPage[];
+  rootUrl: string;
+  scope: TargetScope;
+  selectedPageUrl: string | null;
+  refinedPages: RefinedPage[];
+}) {
+  const t = useT();
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = useCallback(
+    async (dlScope: "all" | "single") => {
+      setDownloading(true);
+      try {
+        const body: Record<string, unknown> = {
+          pages: dlScope === "all" ? allPages : pages,
+          rootUrl,
+          scope: dlScope,
+        };
+        if (dlScope === "single" && selectedPageUrl) {
+          body.pageUrl = selectedPageUrl;
+        }
+
+        const res = await fetch("/api/deep-analyze/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) throw new Error(`Export failed (${res.status})`);
+
+        const blob = await res.blob();
+        const disposition = res.headers.get("Content-Disposition") ?? "";
+        const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+        const filename = filenameMatch?.[1] ?? "export.md";
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setDownloading(false);
+      }
+    },
+    [allPages, pages, rootUrl, selectedPageUrl],
+  );
+
+  const successCount = allPages.filter((p) => p.status === "success").length;
+
+  return (
+    <div className="space-y-4">
+      {/* Agent-friendly banner */}
+      <div className="rounded-lg border border-purple-800/30 bg-purple-950/20 p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <FileText className="mt-0.5 h-5 w-5 shrink-0 text-purple-400" />
+          <div>
+            <h3 className="text-sm font-semibold text-purple-300">{t("export.agentFriendly")}</h3>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">{t("export.agentFriendlyNote")}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Download options */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {/* All pages */}
+        <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Layers className="h-4 w-4 text-purple-400" />
+            <h4 className="text-sm font-semibold text-white">{t("export.downloadCombined")}</h4>
+          </div>
+          <p className="mb-4 text-[11px] leading-relaxed text-slate-500">{t("export.combinedDescription")}</p>
+          <p className="mb-3 text-xs text-slate-400">
+            {t("export.allPagesCount", { count: successCount })}
+          </p>
+          <button
+            onClick={() => handleDownload("all")}
+            disabled={downloading || successCount === 0}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:from-purple-500 hover:to-indigo-500 disabled:opacity-40"
+          >
+            {downloading ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                {t("export.generating")}
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                {t("export.downloadAllMarkdown")}
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Single page */}
+        <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <FileText className="h-4 w-4 text-indigo-400" />
+            <h4 className="text-sm font-semibold text-white">{t("export.downloadMarkdown")}</h4>
+          </div>
+          <p className="mb-4 text-[11px] leading-relaxed text-slate-500">{t("export.perPageDescription")}</p>
+          {scope === "single" && selectedPageUrl ? (
+            <button
+              onClick={() => handleDownload("single")}
+              disabled={downloading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-600 bg-indigo-600/10 px-4 py-2.5 text-sm font-semibold text-indigo-300 transition-all hover:bg-indigo-600/20 disabled:opacity-40"
+            >
+              <Download className="h-4 w-4" />
+              {t("export.downloadSingleMd")}
+            </button>
+          ) : (
+            <p className="text-xs text-slate-500">{t("targetScope.selectPage")}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Refined markdown quick export */}
+      {refinedPages.length > 0 && (
+        <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+          <h4 className="mb-2 text-sm font-semibold text-white">{t("refinement.refinedOutput", { count: refinedPages.length })}</h4>
+          <p className="mb-3 text-[11px] text-slate-500">
+            {refinedPages.length} pages refined and ready for download.
+          </p>
+          <button
+            onClick={() => {
+              const combined = refinedPages.map((rp) => rp.markdown).join("\n\n---\n\n");
+              downloadText(combined, "refined_report.md");
+            }}
+            className="flex items-center gap-2 rounded-lg border border-purple-600 bg-purple-600/10 px-4 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-600/20"
+          >
+            <Download className="h-4 w-4" />
+            {t("export.downloadCombined")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Utility ─── */
+
+function downloadText(content: string, filename: string) {
+  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

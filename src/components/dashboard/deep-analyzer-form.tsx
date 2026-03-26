@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useT } from "@/lib/i18n";
 import type {
   CrawledPage,
   CrawlStreamEvent,
@@ -12,6 +13,7 @@ type Status = "idle" | "crawling" | "paused" | "completed" | "error";
 
 export function DeepAnalyzerForm() {
   const router = useRouter();
+  const t = useT();
   const [url, setUrl] = useState("");
   const [maxPages, setMaxPages] = useState(10);
   const [maxDepth, setMaxDepth] = useState(3);
@@ -104,7 +106,7 @@ export function DeepAnalyzerForm() {
 
     try {
       let allPages: CrawledPage[] = [];
-      let rootUrl = trimmed;
+      const rootUrl = trimmed;
       let currentJobId: string | null = null;
 
       const res = await fetch("/api/deep-analyze", {
@@ -190,14 +192,14 @@ export function DeepAnalyzerForm() {
           {status === "crawling" || status === "paused" ? (
             <>
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              {status === "paused" ? "Resuming…" : "Crawling…"}
+              {status === "paused" ? t("deepAnalyzer.resuming") : t("deepAnalyzer.crawling")}
             </>
           ) : (
             <>
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              DeepAnalyzer
+              {t("deepAnalyzer.button")}
             </>
           )}
         </button>
@@ -206,7 +208,7 @@ export function DeepAnalyzerForm() {
       {/* Config row */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-slate-500">Pages:</span>
+          <span className="text-[11px] text-slate-500">{t("deepAnalyzer.configPages")}</span>
           <div className="flex gap-1">
             {[10, 25, 50].map((n) => (
               <button
@@ -224,7 +226,7 @@ export function DeepAnalyzerForm() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-slate-500">Depth:</span>
+          <span className="text-[11px] text-slate-500">{t("deepAnalyzer.configDepth")}</span>
           <div className="flex gap-1">
             {[1, 2, 3, 5].map((n) => (
               <button
@@ -242,7 +244,7 @@ export function DeepAnalyzerForm() {
           </div>
         </div>
         <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-purple-300">
-          Premium
+          {t("common.premium")}
         </span>
       </div>
 
@@ -252,21 +254,21 @@ export function DeepAnalyzerForm() {
           <div className="flex items-center gap-3">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
             <span className="min-w-0 truncate text-sm text-slate-300">
-              {status === "paused" ? "Resuming crawl…" : `Crawling ${url}…`}
+              {status === "paused" ? t("deepAnalyzer.resuming") : `${t("deepAnalyzer.crawling").replace("…", "")} ${url}…`}
             </span>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
               <p className="text-base font-bold text-purple-300">{crawled}</p>
-              <p className="text-[10px] text-slate-500">Crawled</p>
+              <p className="text-[10px] text-slate-500">{t("deepAnalyzer.crawled")}</p>
             </div>
             <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
               <p className="text-base font-bold text-slate-300">{discovered}</p>
-              <p className="text-[10px] text-slate-500">Discovered</p>
+              <p className="text-[10px] text-slate-500">{t("deepAnalyzer.discovered")}</p>
             </div>
             <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
               <p className="text-base font-bold text-red-300">{errors}</p>
-              <p className="text-[10px] text-slate-500">Errors</p>
+              <p className="text-[10px] text-slate-500">{t("common.errors")}</p>
             </div>
           </div>
           {crawled > 0 && (
@@ -278,7 +280,7 @@ export function DeepAnalyzerForm() {
                 />
               </div>
               <p className="mt-1 text-right text-[10px] text-slate-500">
-                {crawled} / {maxPages} max
+                {t("deepAnalyzer.maxLabel", { crawled, max: maxPages })}
               </p>
             </div>
           )}
@@ -288,13 +290,13 @@ export function DeepAnalyzerForm() {
       {/* Error */}
       {status === "error" && error && (
         <div className="rounded-lg border border-red-800/40 bg-red-950/30 p-3 sm:p-4">
-          <p className="text-sm font-medium text-red-400">Crawl failed</p>
+          <p className="text-sm font-medium text-red-400">{t("deepAnalyzer.crawlFailed")}</p>
           <p className="mt-1 break-words text-xs text-red-300/80">{error}</p>
           <button
             onClick={() => setStatus("idle")}
             className="mt-2 rounded-md bg-slate-800/60 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800 hover:text-slate-300"
           >
-            Dismiss
+            {t("common.dismiss")}
           </button>
         </div>
       )}
@@ -305,15 +307,15 @@ export function DeepAnalyzerForm() {
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-green-400" />
             <p className="text-sm font-medium text-green-400">
-              Crawl complete — {pages.length} pages
+              {t("deepAnalyzer.crawlComplete")} — {t("deepAnalyzer.pagesCount", { count: pages.length })}
             </p>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {Object.entries(
               pages.reduce(
                 (acc, p) => {
-                  const t = p.pageTypeGuess ?? "other";
-                  acc[t] = (acc[t] ?? 0) + 1;
+                  const tp = p.pageTypeGuess ?? "other";
+                  acc[tp] = (acc[tp] ?? 0) + 1;
                   return acc;
                 },
                 {} as Record<string, number>,
@@ -329,7 +331,7 @@ export function DeepAnalyzerForm() {
           </div>
           <div className="mt-2 flex items-center gap-2">
             <div className="h-3 w-3 animate-spin rounded-full border border-slate-600 border-t-slate-300" />
-            <p className="text-[11px] text-slate-500">Redirecting to results…</p>
+            <p className="text-[11px] text-slate-500">{t("deepAnalyzer.redirecting")}</p>
           </div>
         </div>
       )}
