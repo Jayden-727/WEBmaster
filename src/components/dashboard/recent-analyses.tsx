@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 import { Globe, ArrowRight } from "lucide-react";
 
 interface RecentAnalysisItem {
@@ -73,7 +74,7 @@ export function RecentAnalysesList() {
       {items.map((item) => (
         <Link
           key={item.id}
-          href={`/analysis/${item.id}`}
+          href={`/analysis/${item.id}` as Route}
           className="group flex items-center gap-3 rounded-lg border border-transparent p-2.5 transition hover:border-slate-800 hover:bg-slate-800/40 active:bg-slate-800/60 sm:p-3"
         >
           {/* Domain icon */}

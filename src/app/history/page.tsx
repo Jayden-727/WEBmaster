@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 import {
   ArrowLeft,
   Globe,
@@ -337,10 +338,11 @@ function HistoryCard({ item }: { item: HistoryItem }) {
   const statusCfg = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending;
   const StatusIcon = statusCfg.icon;
 
-  const resultHref =
+  const resultHref = (
     item.type === "deep"
       ? `/deep-analysis/${item.id}`
-      : `/analysis/${item.id}`;
+      : `/analysis/${item.id}`
+  ) as Route;
 
   let pathname = item.url;
   try { pathname = new URL(item.url).hostname + new URL(item.url).pathname; } catch {}

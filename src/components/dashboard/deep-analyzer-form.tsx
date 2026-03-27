@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { useT } from "@/lib/i18n";
 import type { CrawlMode } from "@/types/deep-analysis";
 
@@ -49,7 +50,7 @@ export function DeepAnalyzerForm() {
       }
 
       const { jobId } = await res.json();
-      router.push(`/deep-analysis/${jobId}`);
+      router.push(`/deep-analysis/${jobId}` as Route);
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Failed to create job");

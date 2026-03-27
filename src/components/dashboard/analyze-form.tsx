@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { AnalyzeMode, AnalyzeApiResponse } from "@/types/analysis";
 
 type FormStatus = "idle" | "loading" | "success" | "error";
@@ -55,7 +56,7 @@ export function AnalyzeForm() {
         try {
           sessionStorage.setItem(`analysis:${typedData.analysisId}`, JSON.stringify(typedData));
         } catch { /* sessionStorage may be full or unavailable */ }
-        setTimeout(() => router.push(`/analysis/${typedData.analysisId}`), 1500);
+        setTimeout(() => router.push(`/analysis/${typedData.analysisId}` as Route), 1500);
       }
     } catch (err) {
       setStatus("error");

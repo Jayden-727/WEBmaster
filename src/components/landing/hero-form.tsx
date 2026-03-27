@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 
 export function HeroForm() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export function HeroForm() {
         try {
           sessionStorage.setItem(`analysis:${data.analysisId}`, JSON.stringify(data));
         } catch {}
-        router.push(`/analysis/${data.analysisId}`);
+        router.push(`/analysis/${data.analysisId}` as Route);
       }
     } catch {
       setError("Network error — could not reach the server");
