@@ -61,6 +61,7 @@ export interface DeepAnalysisJob {
   pages: CrawledPage[];
   totalDiscovered: number;
   totalProcessed: number;
+  totalSuccess: number;
   totalFailed: number;
   startedAt: string;
   completedAt?: string;

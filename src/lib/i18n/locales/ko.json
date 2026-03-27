@@ -79,7 +79,12 @@
     "modeMaxDesc": "페이지 수 제한 없이 전체 사이트를 크롤링합니다. 안전한 배치 처리와 진행 상황 추적이 포함됩니다.",
     "maxWarning": "Max 모드는 도달 가능한 모든 내부 페이지를 크롤링합니다. 대규모 사이트의 경우 상당히 오래 걸릴 수 있습니다.",
     "creating": "작업 생성 중…",
-    "processingBatch": "배치 처리 중…"
+    "processingBatch": "배치 처리 중…",
+    "scopeDomain": "도메인",
+    "scopePath": "경로 범위",
+    "scopeLimit": "제한",
+    "scopeDepth": "최대 깊이",
+    "progressLabel": "처리됨 {processed} / {target} (제한: {limit})"
   },
   "deepResults": {
     "notFound": "분석을 찾을 수 없거나 세션이 만료되었습니다.",
@@ -136,6 +141,32 @@
     "all": "전체 페이지",
     "single": "선택한 페이지",
     "selectPage": "상세 정보를 보려면 페이지를 선택하세요"
+  },
+  "history": {
+    "title": "분석 히스토리",
+    "subtitle": "이전 분석 및 딥 크롤링 작업을 탐색하고 관리하세요.",
+    "totalJobs": "전체 작업",
+    "completedJobs": "완료",
+    "activeJobs": "진행 중",
+    "deepJobs": "Deep Analyzer",
+    "searchPlaceholder": "URL, 도메인 또는 제목으로 검색…",
+    "sortNewest": "최신순",
+    "sortOldest": "오래된순",
+    "sortPages": "페이지 수 순",
+    "sortUpdated": "최근 업데이트순",
+    "singleAnalysis": "단일 페이지",
+    "fetchError": "히스토리 로드 실패",
+    "retry": "재시도",
+    "emptyTitle": "아직 분석이 없습니다",
+    "emptyDescription": "대시보드에서 첫 번째 웹사이트 분석 또는 딥 크롤링을 실행하면 분석 기록이 여기에 표시됩니다.",
+    "startNewAnalysis": "새 분석 시작",
+    "noResults": "필터와 일치하는 결과가 없습니다.",
+    "clearFilters": "모든 필터 지우기",
+    "openResult": "결과 열기",
+    "resume": "작업 재개",
+    "openOriginal": "원본 URL 열기",
+    "pagesOk": "페이지 성공",
+    "pagesFailed": "실패"
   },
   "techProfile": {
     "title": "기술 프로필",

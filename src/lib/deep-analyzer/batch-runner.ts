@@ -1,6 +1,7 @@
 import type { QueueItem, CrawledPage, CrawlMode } from "@/types/deep-analysis";
 import { buildCrawledPage } from "./raw-extractor";
 import { detectPageType } from "./page-type-detector";
+import { isWithinPathScope } from "./site-crawler";
 
 const BROWSER_HEADERS: Record<string, string> = {
   "User-Agent":
@@ -71,6 +72,7 @@ async function fetchPage(url: string): Promise<string> {
 export interface BatchOptions {
   jobId: string;
   rootDomain: string;
+  allowedPathPrefix: string;
   mode: CrawlMode;
   maxPages: number;
   maxDepth: number;
@@ -127,6 +129,7 @@ export async function runBatch(opts: BatchOptions): Promise<BatchResult> {
     if (item.depth > effectiveDepth) continue;
     if (shouldSkipUrl(normalized)) continue;
     if (!isInternalUrl(normalized, opts.rootDomain)) continue;
+    if (!isWithinPathScope(normalized, opts.allowedPathPrefix)) continue;
 
     visited.add(normalized);
     lastProcessedUrl = normalized;
@@ -169,6 +172,7 @@ export async function runBatch(opts: BatchOptions): Promise<BatchResult> {
           const normLink = normalizeUrl(link.href);
           if (visited.has(normLink)) continue;
           if (shouldSkipUrl(normLink)) continue;
+          if (!isWithinPathScope(normLink, opts.allowedPathPrefix)) continue;
           if (item.depth + 1 > effectiveDepth) continue;
 
           queue.push({

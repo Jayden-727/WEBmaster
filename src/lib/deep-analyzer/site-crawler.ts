@@ -25,6 +25,27 @@ export function extractDomain(url: string): string {
   }
 }
 
+export function extractPathPrefix(url: string): string {
+  try {
+    let path = new URL(url).pathname;
+    if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+    return path;
+  } catch {
+    return "/";
+  }
+}
+
+export function isWithinPathScope(href: string, allowedPathPrefix: string): boolean {
+  if (allowedPathPrefix === "/") return true;
+  try {
+    let path = new URL(href).pathname;
+    if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+    return path === allowedPathPrefix || path.startsWith(allowedPathPrefix + "/");
+  } catch {
+    return false;
+  }
+}
+
 function isInternalUrl(href: string, rootDomain: string): boolean {
   try {
     return new URL(href).hostname.endsWith(rootDomain);
@@ -113,6 +134,7 @@ export async function* crawlSite(
   const effectiveDepth = mode === "max" ? Math.max(maxDepth, 10) : maxDepth;
 
   const domain = extractDomain(rootUrl);
+  const pathPrefix = extractPathPrefix(rootUrl);
   const jobId = crypto.randomUUID();
   const startTime = Date.now();
 
@@ -147,6 +169,7 @@ export async function* crawlSite(
     if (item.depth > effectiveDepth) continue;
     if (shouldSkipUrl(normalized)) continue;
     if (!isInternalUrl(normalized, domain)) continue;
+    if (!isWithinPathScope(normalized, pathPrefix)) continue;
 
     visited.add(normalized);
 
@@ -186,6 +209,7 @@ export async function* crawlSite(
           const normLink = normalizeUrl(link.href);
           if (visited.has(normLink)) continue;
           if (shouldSkipUrl(normLink)) continue;
+          if (!isWithinPathScope(normLink, pathPrefix)) continue;
           if (item.depth + 1 > effectiveDepth) continue;
 
           queue.push({

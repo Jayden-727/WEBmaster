@@ -79,7 +79,12 @@
     "modeMaxDesc": "Crawl the entire site with no fixed page cap. Safe batching and progress tracking.",
     "maxWarning": "Max Mode will crawl all reachable internal pages. This may take significantly longer for large sites.",
     "creating": "Creating job…",
-    "processingBatch": "Processing batch…"
+    "processingBatch": "Processing batch…",
+    "scopeDomain": "Domain",
+    "scopePath": "Path scope",
+    "scopeLimit": "Limit",
+    "scopeDepth": "Max depth",
+    "progressLabel": "Processed {processed} / {target} (limit: {limit})"
   },
   "deepResults": {
     "notFound": "Analysis not found or session expired.",
@@ -136,6 +141,32 @@
     "all": "All Pages",
     "single": "Selected Page",
     "selectPage": "Select a page to view details"
+  },
+  "history": {
+    "title": "Analysis History",
+    "subtitle": "Browse and manage all your previous analyses and deep crawl jobs.",
+    "totalJobs": "Total Jobs",
+    "completedJobs": "Completed",
+    "activeJobs": "Active",
+    "deepJobs": "Deep Analyzer",
+    "searchPlaceholder": "Search by URL, domain, or title…",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first",
+    "sortPages": "Most pages",
+    "sortUpdated": "Recently updated",
+    "singleAnalysis": "Single Page",
+    "fetchError": "Failed to load history",
+    "retry": "Retry",
+    "emptyTitle": "No analyses yet",
+    "emptyDescription": "Your analysis history will appear here after you run your first website analysis or deep crawl from the dashboard.",
+    "startNewAnalysis": "Start New Analysis",
+    "noResults": "No results match your filters.",
+    "clearFilters": "Clear all filters",
+    "openResult": "Open result",
+    "resume": "Resume job",
+    "openOriginal": "Open original URL",
+    "pagesOk": "pages OK",
+    "pagesFailed": "failed"
   },
   "techProfile": {
     "title": "Technology Profile",

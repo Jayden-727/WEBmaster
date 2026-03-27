@@ -75,6 +75,7 @@ export default function DeepAnalysisPage({
         pages: data.pages ?? [],
         totalDiscovered: data.totalDiscovered,
         totalProcessed: data.totalProcessed ?? 0,
+        totalSuccess: data.totalSuccess ?? 0,
         totalFailed: data.totalFailed ?? 0,
         startedAt: data.startedAt,
         completedAt: data.completedAt,
@@ -240,8 +241,16 @@ export default function DeepAnalysisPage({
           </h1>
           <p className="mt-1 text-xs text-slate-500">{job.domain}</p>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3">
-            <SummaryCard label={t("deepResults.pagesCrawled")} value={job.pages.length} />
+          {/* Scope summary */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-slate-800/60 bg-slate-900/30 px-3 py-2 text-[11px] text-slate-400">
+            <span><span className="font-medium text-slate-300">{t("deepAnalyzer.scopeDomain")}:</span> {job.domain}</span>
+            <span><span className="font-medium text-slate-300">{t("deepAnalyzer.scopePath")}:</span> {(() => { try { let p = new URL(job.rootUrl).pathname; if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1); return p === "/" ? "/ (entire site)" : `${p}/*`; } catch { return "/"; } })()}</span>
+            <span><span className="font-medium text-slate-300">{t("deepAnalyzer.scopeLimit")}:</span> {job.mode === "max" ? "10,000 (MAX)" : job.maxPages}</span>
+            <span><span className="font-medium text-slate-300">{t("deepAnalyzer.scopeDepth")}:</span> {job.mode === "max" ? Math.max(job.maxDepth, 10) : job.maxDepth}</span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3">
+            <SummaryCard label={t("deepResults.pagesCrawled")} value={`${job.totalProcessed} / ${job.mode === "max" ? "10K" : job.maxPages}`} />
             <SummaryCard label={t("deepResults.successful")} value={successPages.length} color="text-green-400" />
             <SummaryCard label={t("common.errors")} value={errorPages.length} color="text-red-400" />
             <SummaryCard
@@ -280,33 +289,52 @@ export default function DeepAnalysisPage({
                 </span>
               )}
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
-                <p className="text-base font-bold text-purple-300">{job.totalProcessed}</p>
-                <p className="text-[10px] text-slate-500">{t("deepAnalyzer.crawled")}</p>
-              </div>
-              <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
-                <p className="text-base font-bold text-slate-300">{job.totalDiscovered}</p>
-                <p className="text-[10px] text-slate-500">{t("deepAnalyzer.discovered")}</p>
-              </div>
-              <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
-                <p className="text-base font-bold text-red-300">{job.totalFailed}</p>
-                <p className="text-[10px] text-slate-500">{t("common.errors")}</p>
-              </div>
-            </div>
-            {job.totalProcessed > 0 && job.totalDiscovered > 0 && (
-              <div className="mt-2">
-                <div className="h-1.5 rounded-full bg-slate-800">
-                  <div
-                    className="h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all"
-                    style={{ width: `${Math.min((job.totalProcessed / job.totalDiscovered) * 100, 99)}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-right text-[10px] text-slate-500">
-                  {t("deepAnalyzer.maxProgress", { crawled: job.totalProcessed, discovered: job.totalDiscovered })}
-                </p>
-              </div>
-            )}
+            {(() => {
+              const effectiveLimit = job.mode === "max" ? 10_000 : job.maxPages;
+              const progressTarget = Math.min(effectiveLimit, job.totalDiscovered);
+              const progressPct = progressTarget > 0 ? Math.min((job.totalProcessed / progressTarget) * 100, 99) : 0;
+              const limitLabel = job.mode === "max" ? "10,000" : String(job.maxPages);
+
+              return (
+                <>
+                  <div className="mt-3 grid grid-cols-4 gap-2">
+                    <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
+                      <p className="text-base font-bold text-purple-300">{job.totalProcessed}</p>
+                      <p className="text-[10px] text-slate-500">{t("deepAnalyzer.crawled")}</p>
+                    </div>
+                    <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
+                      <p className="text-base font-bold text-slate-300">{job.totalDiscovered}</p>
+                      <p className="text-[10px] text-slate-500">{t("deepAnalyzer.discovered")}</p>
+                    </div>
+                    <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
+                      <p className="text-base font-bold text-indigo-300">{limitLabel}</p>
+                      <p className="text-[10px] text-slate-500">{t("deepAnalyzer.scopeLimit")}</p>
+                    </div>
+                    <div className="rounded-md bg-slate-800/40 px-2.5 py-2 text-center">
+                      <p className="text-base font-bold text-red-300">{job.totalFailed}</p>
+                      <p className="text-[10px] text-slate-500">{t("common.errors")}</p>
+                    </div>
+                  </div>
+                  {progressTarget > 0 && (
+                    <div className="mt-2">
+                      <div className="h-1.5 rounded-full bg-slate-800">
+                        <div
+                          className="h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-right text-[10px] text-slate-500">
+                        {t("deepAnalyzer.progressLabel", {
+                          processed: job.totalProcessed,
+                          target: progressTarget,
+                          limit: limitLabel,
+                        })}
+                      </p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -521,51 +549,79 @@ function InventoryTab({
         </select>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/50">
-        <table className="w-full text-left text-xs sm:text-sm">
-          <thead className="border-b border-slate-800 bg-slate-900">
-            <tr>
-              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">#</th>
-              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">{t("common.url")}</th>
-              <th className="hidden px-3 py-2.5 font-medium text-slate-400 sm:table-cell sm:px-4">{t("common.title")}</th>
-              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">{t("common.type")}</th>
-              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">{t("common.depth")}</th>
-              <th className="px-3 py-2.5 font-medium text-slate-400 sm:px-4">{t("common.status")}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-800/60">
-            {filtered.map((p, i) => (
-              <tr
-                key={p.url}
-                onClick={() => onSelectPage(p.url)}
-                className="cursor-pointer transition hover:bg-slate-800/30"
-              >
-                <td className="px-3 py-2.5 text-slate-500 sm:px-4">{i + 1}</td>
-                <td className="max-w-[200px] truncate px-3 py-2.5 sm:max-w-[350px] sm:px-4">
-                  <span className="text-indigo-400">{(() => { try { return new URL(p.url).pathname || "/"; } catch { return p.url; } })()}</span>
-                </td>
-                <td className="hidden max-w-[200px] truncate px-3 py-2.5 text-slate-300 sm:table-cell sm:px-4">
-                  {p.title ?? "—"}
-                </td>
-                <td className="px-3 py-2.5 sm:px-4">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${PAGE_TYPE_COLORS[p.pageTypeGuess ?? "other"] ?? PAGE_TYPE_COLORS.other}`}>
-                    {p.pageTypeGuess ?? "other"}
-                  </span>
-                </td>
-                <td className="px-3 py-2.5 text-slate-400 sm:px-4">{p.depth}</td>
-                <td className="px-3 py-2.5 sm:px-4">
+      <div className="space-y-2">
+        {filtered.map((p, i) => {
+          let pathname = "/";
+          try { pathname = new URL(p.url).pathname || "/"; } catch {}
+          return (
+            <div
+              key={p.url}
+              className="group rounded-lg border border-slate-800 bg-slate-900/50 transition hover:border-slate-700"
+            >
+              <div className="flex items-start gap-3 px-3 py-3 sm:items-center sm:px-4">
+                {/* Number + status */}
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="w-5 text-right text-[11px] text-slate-600">{i + 1}</span>
                   {p.status === "success" ? (
-                    <span className="text-green-400">✓</span>
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500/15 text-[10px] text-green-400">✓</span>
                   ) : (
-                    <span className="text-red-400">✗</span>
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500/15 text-[10px] text-red-400">✗</span>
                   )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+
+                {/* Main content */}
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-w-0 truncate text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:underline sm:text-sm"
+                      title={p.url}
+                    >
+                      {pathname}
+                    </a>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${PAGE_TYPE_COLORS[p.pageTypeGuess ?? "other"] ?? PAGE_TYPE_COLORS.other}`}>
+                      {p.pageTypeGuess ?? "other"}
+                    </span>
+                    {p.depth > 0 && (
+                      <span className="hidden shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-500 sm:inline">
+                        d{p.depth}
+                      </span>
+                    )}
+                  </div>
+                  {p.title && (
+                    <p className="truncate text-[11px] text-slate-500">{p.title}</p>
+                  )}
+                  <p className="truncate text-[10px] text-slate-600" title={p.url}>{p.url}</p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); window.open(p.url, "_blank", "noopener,noreferrer"); }}
+                    className="rounded-md p-1.5 text-slate-600 transition hover:bg-slate-800 hover:text-indigo-400 sm:opacity-0 sm:group-hover:opacity-100"
+                    title="Open in new tab"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </button>
+                  <CopyUrlButton url={p.url} />
+                  <button
+                    onClick={() => onSelectPage(p.url)}
+                    className="rounded-md p-1.5 text-slate-600 transition hover:bg-slate-800 hover:text-purple-400 sm:opacity-0 sm:group-hover:opacity-100"
+                    title="View details"
+                  >
+                    <Search className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
         {filtered.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-slate-500">{t("deepResults.noPagesMatch")}</p>
+          <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-800 py-12">
+            <p className="text-sm text-slate-500">{t("deepResults.noPagesMatch")}</p>
+          </div>
         )}
       </div>
     </div>
@@ -688,21 +744,38 @@ function RawPageCard({ page }: { page: CrawledPage }) {
   }, [page]);
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/50">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-3 text-left sm:px-4">
-        {open ? <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" /> : <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />}
-        <span className="min-w-0 flex-1 truncate text-xs font-medium text-white sm:text-sm">{pathname}</span>
+    <div className="group rounded-lg border border-slate-800 bg-slate-900/50">
+      <div className="flex w-full items-center gap-2 px-3 py-3 sm:px-4">
+        <button onClick={() => setOpen(!open)} className="shrink-0 text-slate-500 hover:text-slate-300">
+          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
+        <a
+          href={page.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-w-0 flex-1 truncate text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:underline sm:text-sm"
+          title={page.url}
+        >
+          {pathname}
+        </a>
+        <button
+          onClick={() => window.open(page.url, "_blank", "noopener,noreferrer")}
+          className="shrink-0 rounded p-1 text-slate-600 transition hover:bg-slate-800 hover:text-slate-300 sm:opacity-0 sm:group-hover:opacity-100"
+          title="Open"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </button>
         {page.status === "success" ? <Check className="h-3.5 w-3.5 shrink-0 text-green-400" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-400" />}
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${PAGE_TYPE_COLORS[page.pageTypeGuess ?? "other"] ?? PAGE_TYPE_COLORS.other}`}>
           {page.pageTypeGuess ?? "other"}
         </span>
-      </button>
+      </div>
 
       {open && (
         <div className="border-t border-slate-800 px-3 pb-4 pt-3 sm:px-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <a href={page.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-indigo-400 hover:underline">
-              {page.url} <ExternalLink className="h-3 w-3" />
+            <a href={page.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 break-all text-xs text-indigo-400 hover:underline">
+              {page.url} <ExternalLink className="h-3 w-3 shrink-0" />
             </a>
             <button onClick={handleCopy} className="flex items-center gap-1 rounded-md bg-slate-800 px-2 py-1 text-[10px] text-slate-400 hover:bg-slate-700 hover:text-white">
               <Copy className="h-3 w-3" />
@@ -904,12 +977,29 @@ function RefinedPageCard({ refined }: { refined: RefinedPage }) {
   try { pathname = new URL(refined.url).pathname || "/"; } catch {}
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/50">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-2 px-3 py-3 text-left sm:px-4">
-        {open ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
-        <FileText className="h-3.5 w-3.5 text-purple-400" />
-        <span className="min-w-0 flex-1 truncate text-xs font-medium text-white sm:text-sm">{pathname}</span>
-      </button>
+    <div className="group rounded-lg border border-slate-800 bg-slate-900/50">
+      <div className="flex w-full items-center gap-2 px-3 py-3 sm:px-4">
+        <button onClick={() => setOpen(!open)} className="shrink-0 text-slate-500 hover:text-slate-300">
+          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
+        <FileText className="h-3.5 w-3.5 shrink-0 text-purple-400" />
+        <a
+          href={refined.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-w-0 flex-1 truncate text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:underline sm:text-sm"
+          title={refined.url}
+        >
+          {pathname}
+        </a>
+        <button
+          onClick={() => window.open(refined.url, "_blank", "noopener,noreferrer")}
+          className="shrink-0 rounded p-1 text-slate-600 transition hover:bg-slate-800 hover:text-slate-300 sm:opacity-0 sm:group-hover:opacity-100"
+          title="Open"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </button>
+      </div>
       {open && (
         <div className="border-t border-slate-800 px-3 pb-4 pt-3 sm:px-4">
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -1094,6 +1184,121 @@ function ExportTab({
   );
 }
 
+/* ─── Copy URL Button ─── */
+
+function CopyUrlButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(url).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      className="rounded-md p-1.5 text-slate-600 transition hover:bg-slate-800 hover:text-slate-300 sm:opacity-0 sm:group-hover:opacity-100"
+      title={copied ? "Copied!" : "Copy URL"}
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
+
+/* ─── Reusable Page Link ─── */
+
+function PageLink({
+  url,
+  title,
+  compact = false,
+}: {
+  url: string;
+  title?: string | null;
+  compact?: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+  let pathname = url;
+  try { pathname = new URL(url).pathname || "/"; } catch {}
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  const handleOpen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  if (compact) {
+    return (
+      <div className="group flex min-w-0 items-center gap-1.5">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="min-w-0 truncate text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline"
+          title={url}
+        >
+          {pathname}
+        </a>
+        <button
+          onClick={handleOpen}
+          className="shrink-0 rounded p-0.5 text-slate-600 opacity-0 transition hover:bg-slate-800 hover:text-slate-300 group-hover:opacity-100"
+          title="Open"
+        >
+          <ExternalLink className="h-3 w-3" />
+        </button>
+        <button
+          onClick={handleCopy}
+          className="shrink-0 rounded p-0.5 text-slate-600 opacity-0 transition hover:bg-slate-800 hover:text-slate-300 group-hover:opacity-100"
+          title="Copy URL"
+        >
+          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group flex min-w-0 flex-col gap-0.5">
+      <div className="flex min-w-0 items-center gap-2">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="min-w-0 truncate text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:underline sm:text-sm"
+          title={url}
+        >
+          {title || pathname}
+        </a>
+        <button
+          onClick={handleOpen}
+          className="shrink-0 rounded p-1 text-slate-600 transition hover:bg-slate-800 hover:text-slate-300 sm:opacity-0 sm:group-hover:opacity-100"
+          title="Open in new tab"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={handleCopy}
+          className="shrink-0 rounded p-1 text-slate-600 transition hover:bg-slate-800 hover:text-slate-300 sm:opacity-0 sm:group-hover:opacity-100"
+          title="Copy URL"
+        >
+          {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+      {title && (
+        <span className="truncate text-[10px] text-slate-500" title={url}>{pathname}</span>
+      )}
+    </div>
+  );
+}
+
 /* ─── Utility ─── */
 
 function downloadText(content: string, filename: string) {
@@ -1214,16 +1419,20 @@ function TechProfileTab({
         </h3>
         <div className="flex flex-wrap gap-1.5 sm:gap-2">
           {aggregated.map((tech) => (
-            <span
+            <button
               key={tech.name}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium sm:text-xs ${TECH_CATEGORY_COLORS[tech.category] ?? TECH_CATEGORY_COLORS.other}`}
+              onClick={() => {
+                const el = document.getElementById(`tech-category-${tech.category}`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition hover:brightness-125 sm:text-xs ${TECH_CATEGORY_COLORS[tech.category] ?? TECH_CATEGORY_COLORS.other}`}
             >
               <span className={`inline-block h-1.5 w-1.5 rounded-full ${tech.confidence >= 0.85 ? "bg-green-400" : tech.confidence >= 0.7 ? "bg-yellow-400" : "bg-orange-400"}`} />
               {tech.name}
               {scope === "all" && totalPages > 1 && (
                 <span className="ml-0.5 text-[10px] opacity-60">({tech.pageCount})</span>
               )}
-            </span>
+            </button>
           ))}
         </div>
       </div>
@@ -1233,7 +1442,7 @@ function TechProfileTab({
         const categoryLabel = t(`techProfile.categories.${category}`);
 
         return (
-          <div key={category} className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+          <div key={category} id={`tech-category-${category}`} className="scroll-mt-24 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-xs font-semibold text-slate-200 sm:text-sm">{categoryLabel}</h3>
               <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">{items.length}</span>
@@ -1306,12 +1515,29 @@ function DeepTechCard({ tech, totalPages, showPages }: { tech: AggregatedTech; t
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 {t("common.pages")} ({tech.pageCount}/{totalPages})
               </p>
-              <div className="max-h-32 space-y-0.5 overflow-y-auto">
-                {tech.pages.map((url) => {
-                  let pathname = url;
-                  try { pathname = new URL(url).pathname || "/"; } catch {}
+              <div className="max-h-40 space-y-1 overflow-y-auto">
+                {tech.pages.map((pageUrl) => {
+                  let pathname = pageUrl;
+                  try { pathname = new URL(pageUrl).pathname || "/"; } catch {}
                   return (
-                    <div key={url} className="truncate text-[11px] text-slate-500">{pathname}</div>
+                    <div key={pageUrl} className="group/page flex min-w-0 items-center gap-1.5">
+                      <a
+                        href={pageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-w-0 truncate text-[11px] text-indigo-400/80 hover:text-indigo-300 hover:underline"
+                        title={pageUrl}
+                      >
+                        {pathname}
+                      </a>
+                      <button
+                        onClick={() => window.open(pageUrl, "_blank", "noopener,noreferrer")}
+                        className="shrink-0 rounded p-0.5 text-slate-700 opacity-0 transition hover:text-slate-300 group-hover/page:opacity-100"
+                        title="Open"
+                      >
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
