@@ -69,6 +69,7 @@ export default function DeepAnalysisPage({
         rootUrl: data.rootUrl,
         domain: data.domain,
         mode: data.mode ?? "all",
+        crawlStrategy: data.crawlStrategy ?? "fetch",
         maxPages: data.maxPages,
         maxDepth: data.maxDepth,
         status: data.status,
@@ -247,6 +248,9 @@ export default function DeepAnalysisPage({
             <span><span className="font-medium text-slate-300">{t("deepAnalyzer.scopePath")}:</span> {(() => { try { let p = new URL(job.rootUrl).pathname; if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1); return p === "/" ? "/ (entire site)" : `${p}/*`; } catch { return "/"; } })()}</span>
             <span><span className="font-medium text-slate-300">{t("deepAnalyzer.scopeLimit")}:</span> {job.mode === "max" ? "10,000 (MAX)" : job.maxPages}</span>
             <span><span className="font-medium text-slate-300">{t("deepAnalyzer.scopeDepth")}:</span> {job.mode === "max" ? Math.max(job.maxDepth, 10) : job.maxDepth}</span>
+            <span><span className="font-medium text-slate-300">{t("deepAnalyzer.strategyLabel")}:</span> <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+              job.crawlStrategy === "strong" ? "bg-cyan-500/15 text-cyan-300" : "bg-indigo-500/15 text-indigo-300"
+            }`}>{job.crawlStrategy === "strong" ? t("deepAnalyzer.strategyStrong") : t("deepAnalyzer.strategyFetch")}</span></span>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3">
@@ -589,6 +593,23 @@ function InventoryTab({
                         d{p.depth}
                       </span>
                     )}
+                    {p.crawlStrategy && p.crawlStrategy !== "fetch" && (
+                      <span className={`hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium sm:inline ${
+                        p.crawlStrategy === "rendered" ? "bg-cyan-500/15 text-cyan-300"
+                          : "bg-amber-500/15 text-amber-300"
+                      }`}>
+                        {p.crawlStrategy === "rendered" ? "rendered" : "fallback"}
+                      </span>
+                    )}
+                    {p.contentScore != null && (
+                      <span className={`hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] sm:inline ${
+                        p.contentScore >= 0.6 ? "bg-green-500/10 text-green-400"
+                          : p.contentScore >= 0.35 ? "bg-yellow-500/10 text-yellow-400"
+                          : "bg-red-500/10 text-red-400"
+                      }`}>
+                        {Math.round(p.contentScore * 100)}%
+                      </span>
+                    )}
                   </div>
                   {p.title && (
                     <p className="truncate text-[11px] text-slate-500">{p.title}</p>
@@ -782,6 +803,34 @@ function RawPageCard({ page }: { page: CrawledPage }) {
               {copied ? t("common.copied") : t("deepResults.copyJson")}
             </button>
           </div>
+
+          {(page.crawlStrategy || page.contentScore != null) && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {page.crawlStrategy && (
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  page.crawlStrategy === "rendered" ? "bg-cyan-500/15 text-cyan-300"
+                    : page.crawlStrategy === "fallback-rendered" ? "bg-amber-500/15 text-amber-300"
+                    : "bg-slate-500/15 text-slate-400"
+                }`}>
+                  {page.crawlStrategy}
+                </span>
+              )}
+              {page.contentScore != null && (
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  page.contentScore >= 0.6 ? "bg-green-500/15 text-green-300"
+                    : page.contentScore >= 0.35 ? "bg-yellow-500/15 text-yellow-300"
+                    : "bg-red-500/15 text-red-300"
+                }`}>
+                  content: {Math.round(page.contentScore * 100)}%
+                </span>
+              )}
+              {page.cookieBannerHandled && (
+                <span className="rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] font-medium text-purple-300">
+                  cookie banner dismissed
+                </span>
+              )}
+            </div>
+          )}
 
           {page.error && (
             <div className="mb-3 rounded-md border border-red-800/40 bg-red-950/30 p-2 text-xs text-red-300">{page.error}</div>

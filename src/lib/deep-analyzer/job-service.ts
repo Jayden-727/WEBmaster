@@ -1,5 +1,5 @@
 import { getServiceClient } from "@/lib/supabase/server";
-import type { CrawledPage, CrawlMode, QueueItem } from "@/types/deep-analysis";
+import type { CrawledPage, CrawlMode, CrawlStrategyPreference, QueueItem } from "@/types/deep-analysis";
 import { extractDomain } from "./site-crawler";
 
 export interface DeepJob {
@@ -7,6 +7,7 @@ export interface DeepJob {
   root_url: string;
   domain: string;
   mode: CrawlMode;
+  crawl_strategy: CrawlStrategyPreference;
   status: "pending" | "running" | "paused" | "completed" | "failed";
   max_pages: number;
   max_depth: number;
@@ -38,6 +39,8 @@ export interface DeepPageRow {
   raw_images: { src: string; alt: string }[];
   raw_text_preview: string | null;
   detected_tech: unknown[];
+  crawl_strategy: string | null;
+  content_score: number | null;
   error_message: string | null;
   created_at: string;
   updated_at: string;
@@ -48,6 +51,7 @@ export async function createJob(params: {
   mode: CrawlMode;
   maxPages: number;
   maxDepth: number;
+  crawlStrategy?: CrawlStrategyPreference;
 }): Promise<{ job: DeepJob | null; error: string | null }> {
   const sb = getServiceClient();
   if (!sb) {
@@ -64,6 +68,7 @@ export async function createJob(params: {
       root_url: params.rootUrl,
       domain,
       mode: params.mode,
+      crawl_strategy: params.crawlStrategy ?? "fetch",
       status: "running",
       max_pages: params.maxPages,
       max_depth: params.maxDepth,
@@ -130,6 +135,8 @@ export async function savePage(
     raw_images: page.rawImages,
     raw_text_preview: page.rawTextPreview,
     detected_tech: page.detectedTech ?? [],
+    crawl_strategy: page.crawlStrategy ?? "fetch",
+    content_score: page.contentScore ?? null,
     error_message: page.error ?? null,
   });
 }
@@ -200,6 +207,8 @@ export function pageRowToCrawledPage(row: DeepPageRow): CrawledPage {
     rawTextPreview: row.raw_text_preview ?? "",
     pageTypeGuess: row.page_type_guess,
     detectedTech: (row.detected_tech ?? []) as CrawledPage["detectedTech"],
+    crawlStrategy: (row.crawl_strategy as CrawledPage["crawlStrategy"]) ?? undefined,
+    contentScore: row.content_score ?? undefined,
     error: row.error_message ?? undefined,
     crawledAt: row.created_at,
   };

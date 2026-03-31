@@ -6,6 +6,7 @@ import { isValidHttpUrl } from "@/lib/utils/url";
 const schema = z.object({
   url: z.string().min(1),
   mode: z.enum(["all", "max"]).default("all"),
+  crawlStrategy: z.enum(["fetch", "strong"]).default("fetch"),
   maxPages: z.number().int().min(1).max(10000).default(10),
   maxDepth: z.number().int().min(1).max(20).default(3),
 });
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
           for await (const event of crawlSite({
             rootUrl: parsed.url,
             mode: parsed.mode,
+            crawlStrategy: parsed.crawlStrategy,
             maxPages: parsed.maxPages,
             maxDepth: parsed.maxDepth,
           })) {

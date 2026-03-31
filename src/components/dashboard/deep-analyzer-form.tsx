@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { useT } from "@/lib/i18n";
-import type { CrawlMode } from "@/types/deep-analysis";
+import type { CrawlMode, CrawlStrategyPreference } from "@/types/deep-analysis";
 
 type Status = "idle" | "creating" | "error";
 
@@ -18,6 +18,7 @@ export function DeepAnalyzerForm() {
   const t = useT();
   const [url, setUrl] = useState("");
   const [mode, setMode] = useState<CrawlMode>("all");
+  const [crawlStrategy, setCrawlStrategy] = useState<CrawlStrategyPreference>("fetch");
   const [maxPages, setMaxPages] = useState(25);
   const [maxDepth, setMaxDepth] = useState(3);
   const [status, setStatus] = useState<Status>("idle");
@@ -41,7 +42,7 @@ export function DeepAnalyzerForm() {
       const res = await fetch("/api/deep-analyzer/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: trimmed, mode, maxPages, maxDepth }),
+        body: JSON.stringify({ url: trimmed, mode, crawlStrategy, maxPages, maxDepth }),
       });
 
       if (!res.ok) {
@@ -55,7 +56,7 @@ export function DeepAnalyzerForm() {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Failed to create job");
     }
-  }, [url, mode, maxPages, maxDepth, router]);
+  }, [url, mode, crawlStrategy, maxPages, maxDepth, router]);
 
   const isRunning = status === "creating";
 
@@ -137,6 +138,49 @@ export function DeepAnalyzerForm() {
               </span>
             </div>
             <p className="mt-1 pl-5 text-[11px] text-slate-400">{t("deepAnalyzer.modeMaxDesc")}</p>
+          </button>
+        </div>
+      </div>
+
+      {/* Analysis mode selector */}
+      <div className="space-y-1.5">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          {t("deepAnalyzer.strategyLabel")}
+        </span>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button
+            onClick={() => setCrawlStrategy("fetch")}
+            disabled={isRunning}
+            className={`rounded-lg border p-3 text-left transition ${
+              crawlStrategy === "fetch"
+                ? "border-indigo-500/40 bg-indigo-500/10"
+                : "border-slate-800 bg-slate-900/30 hover:border-slate-700"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <div className={`h-3 w-3 rounded-full border-2 ${crawlStrategy === "fetch" ? "border-indigo-400 bg-indigo-400" : "border-slate-600"}`} />
+              <span className="text-xs font-semibold text-white">{t("deepAnalyzer.strategyFetch")}</span>
+            </div>
+            <p className="mt-1 pl-5 text-[11px] text-slate-400">{t("deepAnalyzer.strategyFetchDesc")}</p>
+          </button>
+
+          <button
+            onClick={() => setCrawlStrategy("strong")}
+            disabled={isRunning}
+            className={`rounded-lg border p-3 text-left transition ${
+              crawlStrategy === "strong"
+                ? "border-cyan-500/40 bg-cyan-500/10"
+                : "border-slate-800 bg-slate-900/30 hover:border-slate-700"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <div className={`h-3 w-3 rounded-full border-2 ${crawlStrategy === "strong" ? "border-cyan-400 bg-cyan-400" : "border-slate-600"}`} />
+              <span className="text-xs font-semibold text-white">{t("deepAnalyzer.strategyStrong")}</span>
+              <span className="rounded bg-cyan-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-cyan-300">
+                {t("deepAnalyzer.advancedBadge")}
+              </span>
+            </div>
+            <p className="mt-1 pl-5 text-[11px] text-slate-400">{t("deepAnalyzer.strategyStrongDesc")}</p>
           </button>
         </div>
       </div>

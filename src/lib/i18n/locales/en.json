@@ -84,7 +84,13 @@
     "scopePath": "Path scope",
     "scopeLimit": "Limit",
     "scopeDepth": "Max depth",
-    "progressLabel": "Processed {processed} / {target} (limit: {limit})"
+    "progressLabel": "Processed {processed} / {target} (limit: {limit})",
+    "strategyLabel": "Analysis Mode",
+    "strategyFetch": "HTML Fetch",
+    "strategyFetchDesc": "Fast and lightweight analysis for standard websites.",
+    "strategyStrong": "Strong Mode",
+    "strategyStrongDesc": "More robust crawling for complex, JS-heavy, or rendered websites.",
+    "advancedBadge": "Advanced"
   },
   "deepResults": {
     "notFound": "Analysis not found or session expired.",

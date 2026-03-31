@@ -1,17 +1,9 @@
-import type { QueueItem, CrawledPage, CrawlStreamEvent, CrawlMode } from "@/types/deep-analysis";
+import type { QueueItem, CrawledPage, CrawlStreamEvent, CrawlMode, CrawlStrategyPreference } from "@/types/deep-analysis";
 import { buildCrawledPage } from "./raw-extractor";
 import { detectPageType } from "./page-type-detector";
-
-const BROWSER_HEADERS: Record<string, string> = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  "Accept-Language": "en-US,en;q=0.9",
-  "Cache-Control": "no-cache",
-};
+import { smartFetch } from "./smart-fetcher";
 
 const SKIP_EXTENSIONS = /\.(css|js|json|xml|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|pdf|zip|tar|gz|mp[34]|avi|mov|wmv)$/i;
-const PAGE_FETCH_TIMEOUT = 15_000;
 const PAUSE_BUFFER_MS = 5_000;
 const MAX_ABSOLUTE_PAGES = 10_000;
 
@@ -79,32 +71,12 @@ function normalizeUrl(href: string): string {
   }
 }
 
-async function fetchPage(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PAGE_FETCH_TIMEOUT);
-  try {
-    const res = await fetch(url, {
-      headers: BROWSER_HEADERS,
-      signal: controller.signal,
-      redirect: "follow",
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const ct = res.headers.get("content-type") ?? "";
-    if (!ct.includes("text/html") && !ct.includes("application/xhtml")) {
-      throw new Error(`Not HTML (${ct.split(";")[0]})`);
-    }
-    return await res.text();
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 export interface CrawlOptions {
   rootUrl: string;
   mode: CrawlMode;
   maxPages: number;
   maxDepth: number;
+  crawlStrategy?: CrawlStrategyPreference;
   initialQueue?: QueueItem[];
   initialVisited?: string[];
   initialPagesCrawled?: number;
@@ -124,6 +96,7 @@ export async function* crawlSite(
     mode,
     maxPages,
     maxDepth,
+    crawlStrategy: strategyPref = "fetch",
     initialQueue,
     initialVisited,
     initialPagesCrawled = 0,
@@ -174,7 +147,7 @@ export async function* crawlSite(
     visited.add(normalized);
 
     try {
-      const html = await fetchPage(normalized);
+      const fetchResult = await smartFetch(normalized, strategyPref);
 
       const pageType = detectPageType({
         url: normalized,
@@ -187,9 +160,15 @@ export async function* crawlSite(
         normalized,
         item.parentUrl,
         item.depth,
-        html,
+        fetchResult.html,
         domain,
         pageType,
+        {
+          crawlStrategy: fetchResult.strategy,
+          contentScore: fetchResult.contentScore,
+          finalUrl: fetchResult.finalUrl !== normalized ? fetchResult.finalUrl : undefined,
+          cookieBannerHandled: fetchResult.cookieBannerHandled || undefined,
+        },
       );
 
       const refinedType = detectPageType({

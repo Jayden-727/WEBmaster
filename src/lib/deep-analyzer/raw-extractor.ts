@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { CrawledPage, CrawledPageTech } from "@/types/deep-analysis";
+import type { CrawledPage, CrawledPageTech, CrawlStrategyUsed } from "@/types/deep-analysis";
 import { detectStack } from "@/lib/stack-detection/detect-stack";
 
 interface RawExtractionResult {
@@ -99,6 +99,13 @@ export function extractRawPageData(
   return { title, rawMetadata, rawHeadings, rawLinks, rawImages, rawTextPreview, detectedTech };
 }
 
+export interface BuildPageMeta {
+  crawlStrategy?: CrawlStrategyUsed;
+  contentScore?: number;
+  finalUrl?: string;
+  cookieBannerHandled?: boolean;
+}
+
 export function buildCrawledPage(
   url: string,
   parentUrl: string | null,
@@ -106,6 +113,7 @@ export function buildCrawledPage(
   html: string,
   rootDomain: string,
   pageTypeGuess: string | null,
+  meta?: BuildPageMeta,
 ): CrawledPage {
   try {
     const raw = extractRawPageData(html, url, rootDomain);
@@ -122,6 +130,10 @@ export function buildCrawledPage(
       rawTextPreview: raw.rawTextPreview,
       pageTypeGuess,
       detectedTech: raw.detectedTech,
+      crawlStrategy: meta?.crawlStrategy,
+      contentScore: meta?.contentScore,
+      finalUrl: meta?.finalUrl,
+      cookieBannerHandled: meta?.cookieBannerHandled,
       crawledAt: new Date().toISOString(),
     };
   } catch (err) {
@@ -137,6 +149,8 @@ export function buildCrawledPage(
       rawImages: [],
       rawTextPreview: "",
       pageTypeGuess: null,
+      crawlStrategy: meta?.crawlStrategy,
+      contentScore: meta?.contentScore,
       error: err instanceof Error ? err.message : String(err),
       crawledAt: new Date().toISOString(),
     };

@@ -7,6 +7,7 @@ export interface HistoryItem {
   domain: string;
   title: string | null;
   mode: string;
+  crawlStrategy: string | null;
   status: string;
   totalPages: number;
   totalSuccess: number;
@@ -31,7 +32,7 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(100),
     sb.from("deep_jobs")
-      .select("id, root_url, domain, mode, status, total_discovered, total_processed, total_success, total_failed, started_at, completed_at, updated_at")
+      .select("id, root_url, domain, mode, crawl_strategy, status, total_discovered, total_processed, total_success, total_failed, started_at, completed_at, updated_at")
       .order("started_at", { ascending: false })
       .limit(100),
   ]);
@@ -47,6 +48,7 @@ export async function GET() {
         domain,
         title: row.title ?? null,
         mode: row.mode ?? "source",
+        crawlStrategy: null,
         status: row.status ?? "completed",
         totalPages: 1,
         totalSuccess: row.status === "completed" ? 1 : 0,
@@ -71,6 +73,7 @@ export async function GET() {
         domain: row.domain ?? "",
         title: null,
         mode: row.mode ?? "all",
+        crawlStrategy: row.crawl_strategy ?? "fetch",
         status: row.status,
         totalPages: row.total_discovered ?? 0,
         totalSuccess: row.total_success ?? 0,

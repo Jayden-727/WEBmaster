@@ -20,6 +20,7 @@ export async function GET(
     rootUrl: job.root_url,
     domain: job.domain,
     mode: job.mode,
+    crawlStrategy: job.crawl_strategy ?? "fetch",
     status: job.status,
     maxPages: job.max_pages,
     maxDepth: job.max_depth,

@@ -1,10 +1,15 @@
 export type CrawlMode = "all" | "max";
 
+export type CrawlStrategyPreference = "fetch" | "strong";
+
+export type CrawlStrategyUsed = "fetch" | "rendered" | "fallback-rendered";
+
 export interface DeepAnalyzeRequest {
   url: string;
   mode: CrawlMode;
   maxPages: number;
   maxDepth: number;
+  crawlStrategy?: CrawlStrategyPreference;
 }
 
 export interface DeepAnalyzeContinueRequest {
@@ -46,6 +51,10 @@ export interface CrawledPage {
   rawTextPreview: string;
   pageTypeGuess: string | null;
   detectedTech?: CrawledPageTech[];
+  crawlStrategy?: CrawlStrategyUsed;
+  contentScore?: number;
+  finalUrl?: string;
+  cookieBannerHandled?: boolean;
   error?: string;
   crawledAt: string;
 }
@@ -55,6 +64,7 @@ export interface DeepAnalysisJob {
   rootUrl: string;
   domain: string;
   mode: CrawlMode;
+  crawlStrategy: CrawlStrategyPreference;
   maxPages: number;
   maxDepth: number;
   status: "pending" | "running" | "crawling" | "paused" | "completed" | "failed" | "error";

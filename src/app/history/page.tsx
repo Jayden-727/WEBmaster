@@ -382,6 +382,12 @@ function HistoryCard({ item }: { item: HistoryItem }) {
                 MAX
               </span>
             )}
+            {/* Crawl strategy badge */}
+            {item.type === "deep" && item.crawlStrategy === "strong" && (
+              <span className="shrink-0 rounded bg-cyan-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-cyan-300">
+                Strong
+              </span>
+            )}
             {/* Status */}
             <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusCfg.color}`}>
               <StatusIcon className={`h-2.5 w-2.5 ${item.status === "running" ? "animate-spin" : ""}`} />

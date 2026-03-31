@@ -40,11 +40,14 @@ export async function POST(
 
   await updateJob(id, { status: "running" });
 
+  const crawlStrategy = (job.crawl_strategy as "fetch" | "strong") ?? "fetch";
+
   const result = await runBatch({
     jobId: id,
     rootDomain: job.domain,
     allowedPathPrefix,
     mode: job.mode as "all" | "max",
+    crawlStrategy,
     maxPages: job.max_pages,
     maxDepth: job.max_depth,
     queue,
