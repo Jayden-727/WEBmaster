@@ -40,11 +40,11 @@
   "dashboard": {
     "title": "Dashboard",
     "analyzeTitle": "Analyze any website",
-    "analyzeDescription": "Enter any public URL to inspect metadata, structure, technology stack, content, links, images, and Lighthouse performance — all in one place.",
+    "analyzeDescription": "Enter any public URL to inspect metadata, structure, technology stack, content, links, and images — all in one place.",
     "websiteIntelligence": "Website Intelligence",
     "recentAnalyses": "Recent Analyses",
     "analysisModules": "Analysis Modules",
-    "modulesDescription": "Every analysis runs all eight modules simultaneously, delivering a comprehensive intelligence report.",
+    "modulesDescription": "Every analysis runs all seven modules simultaneously, delivering a comprehensive intelligence report.",
     "overview": "Overview",
     "metadata": "Metadata",
     "content": "Content",
@@ -52,7 +52,9 @@
     "structure": "Structure",
     "links": "Links",
     "images": "Images",
-    "lighthouse": "Lighthouse"
+    "failedToLoadRecent": "Failed to load recent analyses",
+    "dbNotConfiguredNote": "Database persistence is not configured. Analyses are temporarily saved in your browser storage.",
+    "submitCtaNote": "Submit a URL above to start your first analysis."
   },
   "deepAnalyzer": {
     "title": "DeepAnalyzer",
@@ -114,7 +116,10 @@
     "headings": "Headings",
     "metadata": "Metadata",
     "int": "int",
-    "ext": "ext"
+    "ext": "ext",
+    "iaView": "IA View",
+    "iaDownloadCsv": "Export IA to CSV",
+    "fallbackNotice": "Temporary mode: crawl results are not persisted after server restart."
   },
   "refinement": {
     "refineAllPages": "Refine All Pages",
@@ -199,6 +204,28 @@
       "fonts": "Fonts & Icons",
       "media": "Media & Video",
       "other": "Other"
+    }
+  },
+  "analysis": {
+    "tabs": {
+      "iaPreview": "IA Preview"
+    },
+    "ia": {
+      "description": "Information Architecture (IA) layout generated automatically from single page analysis.",
+      "downloadCsv": "Download IA CSV",
+      "downloadExcel": "Download IA Excel",
+      "empty": "No Information Architecture records generated",
+      "emptySub": "Ensure the analysis has valid content. If the analysis failed or has zero content, no IA data can be generated.",
+      "cols": {
+        "screenId": "Screen ID",
+        "depth0": "Depth 0",
+        "depth1": "Depth 1",
+        "depth2": "Depth 2",
+        "depth3": "Depth 3",
+        "contents": "Contents",
+        "comments": "Comments",
+        "link": "Link"
+      }
     }
   }
 }

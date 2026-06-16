@@ -40,11 +40,11 @@
   "dashboard": {
     "title": "대시보드",
     "analyzeTitle": "웹사이트 분석하기",
-    "analyzeDescription": "공개 URL을 입력하면 메타데이터, 구조, 기술 스택, 콘텐츠, 링크, 이미지, Lighthouse 성능을 한 곳에서 검사합니다.",
+    "analyzeDescription": "공개 URL을 입력하면 메타데이터, 구조, 기술 스택, 콘텐츠, 링크, 이미지를 한 곳에서 검사합니다.",
     "websiteIntelligence": "웹사이트 인텔리전스",
     "recentAnalyses": "최근 분석",
     "analysisModules": "분석 모듈",
-    "modulesDescription": "모든 분석은 8개 모듈을 동시에 실행하여 종합적인 인텔리전스 보고서를 제공합니다.",
+    "modulesDescription": "모든 분석은 7개 모듈을 동시에 실행하여 종합적인 인텔리전스 보고서를 제공합니다.",
     "overview": "개요",
     "metadata": "메타데이터",
     "content": "콘텐츠",
@@ -52,7 +52,9 @@
     "structure": "구조",
     "links": "링크",
     "images": "이미지",
-    "lighthouse": "Lighthouse"
+    "failedToLoadRecent": "최근 분석을 불러오지 못했습니다.",
+    "dbNotConfiguredNote": "데이터베이스가 설정되지 않았습니다. 분석 기록이 임시로 브라우저 저장소에 보관됩니다.",
+    "submitCtaNote": "위에서 URL을 입력하여 첫 번째 분석을 시작하세요."
   },
   "deepAnalyzer": {
     "title": "DeepAnalyzer",
@@ -114,7 +116,10 @@
     "headings": "제목",
     "metadata": "메타데이터",
     "int": "내부",
-    "ext": "외부"
+    "ext": "외부",
+    "iaView": "IA 설계",
+    "iaDownloadCsv": "IA CSV 내보내기",
+    "fallbackNotice": "임시 모드: 크롤링 결과는 서버 재시작 후 유지되지 않습니다."
   },
   "refinement": {
     "refineAllPages": "전체 페이지 정제",
@@ -199,6 +204,28 @@
       "fonts": "폰트 & 아이콘",
       "media": "미디어 & 동영상",
       "other": "기타"
+    }
+  },
+  "analysis": {
+    "tabs": {
+      "iaPreview": "IA 설계 (Preview)"
+    },
+    "ia": {
+      "description": "단일 페이지 분석 결과를 바탕으로 자동 생성된 정보 구조(IA) 레이아웃입니다.",
+      "downloadCsv": "IA CSV 다운로드",
+      "downloadExcel": "IA Excel 다운로드",
+      "empty": "생성된 정보 구조(IA) 레코드가 없습니다",
+      "emptySub": "분석에 유효한 콘텐츠가 포함되어 있는지 확인하세요. 분석이 실패하거나 내용이 없으면 IA 데이터를 생성할 수 없습니다.",
+      "cols": {
+        "screenId": "화면 ID",
+        "depth0": "Depth 0",
+        "depth1": "Depth 1",
+        "depth2": "Depth 2",
+        "depth3": "Depth 3",
+        "contents": "콘텐츠 구성요소/기능 설명",
+        "comments": "비고/분석 내용",
+        "link": "링크"
+      }
     }
   }
 }

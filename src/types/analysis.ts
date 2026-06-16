@@ -65,6 +65,7 @@ export interface LinkAnalysis {
   href: string;
   text: string;
   isInternal: boolean;
+  isPriority?: boolean;
 }
 
 export interface ImageAnalysis {
@@ -108,8 +109,8 @@ export interface AnalysisResponseData {
   structure: StructureSignalResult[];
   links: LinkAnalysis[];
   images: ImageAnalysis[];
-  lighthouse: LighthouseMetrics;
-  lighthouseInsights: LighthouseInsightCard[];
+  lighthouse?: LighthouseMetrics | null;
+  lighthouseInsights?: LighthouseInsightCard[] | null;
 }
 
 export interface AnalyzeApiResponse {

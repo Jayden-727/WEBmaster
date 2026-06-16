@@ -120,20 +120,6 @@ export async function persistAnalysis(input: PersistInput): Promise<boolean> {
       if (imagesErr) throw new Error(`analysis_images insert: ${imagesErr.message}`);
     }
 
-    const { error: lhErr } = await supabase.from("analysis_lighthouse").insert({
-      analysis_id: input.analysisId,
-      performance_score: input.lighthouse.performanceScore,
-      accessibility_score: input.lighthouse.accessibilityScore,
-      best_practices_score: input.lighthouse.bestPracticesScore,
-      seo_score: input.lighthouse.seoScore,
-      lcp: input.lighthouse.lcp,
-      cls: input.lighthouse.cls,
-      inp: input.lighthouse.inp,
-      fcp: input.lighthouse.fcp,
-      tbt: input.lighthouse.tbt,
-      raw_json: input.lighthouse.rawJson,
-    });
-    if (lhErr) throw new Error(`analysis_lighthouse insert: ${lhErr.message}`);
 
     console.log(`[PERSIST] analysis ${input.analysisId} saved successfully`);
     return true;

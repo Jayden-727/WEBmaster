@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getJob, getJobPages, pageRowToCrawledPage } from "@/lib/deep-analyzer/job-service";
+import { getServiceClient } from "@/lib/supabase/server";
 
 export async function GET(
   _req: NextRequest,
@@ -35,5 +36,6 @@ export async function GET(
     startedAt: job.started_at,
     completedAt: job.completed_at,
     updatedAt: job.updated_at,
+    isTemporary: !getServiceClient(),
   });
 }

@@ -56,6 +56,31 @@ export function AnalyzeForm() {
         try {
           sessionStorage.setItem(`analysis:${typedData.analysisId}`, JSON.stringify(typedData));
         } catch { /* sessionStorage may be full or unavailable */ }
+        
+        try {
+          const localKey = "attractivewebai-recent-analyses";
+          const currentLocal = localStorage.getItem(localKey);
+          let recentList: any[] = [];
+          if (currentLocal) {
+            recentList = JSON.parse(currentLocal);
+            if (!Array.isArray(recentList)) {
+              recentList = [];
+            }
+          }
+          const newItem = {
+            id: typedData.analysisId,
+            title: typedData.title ?? null,
+            url: typedData.url,
+            createdAt: new Date().toISOString(),
+            mode: typedData.mode,
+            status: typedData.success ? "completed" : "failed",
+          };
+          recentList = [newItem, ...recentList.filter(item => item && item.id !== newItem.id)].slice(0, 50);
+          localStorage.setItem(localKey, JSON.stringify(recentList));
+        } catch (e) {
+          console.warn("Failed to cache analysis in localStorage", e);
+        }
+
         setTimeout(() => router.push(`/analysis/${typedData.analysisId}` as Route), 1500);
       }
     } catch (err) {

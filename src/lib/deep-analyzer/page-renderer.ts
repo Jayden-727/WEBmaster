@@ -110,6 +110,7 @@ export async function renderPage(url: string): Promise<RenderResult> {
 
     let finalUrl = url;
 
+    let html = "";
     try {
       const response = await page.goto(url, {
         waitUntil: "domcontentloaded",
@@ -117,39 +118,68 @@ export async function renderPage(url: string): Promise<RenderResult> {
       });
       finalUrl = page.url();
 
-      if (response && !response.ok()) {
-        errors.push(`Navigation returned HTTP ${response.status()}`);
+      if (response) {
+        if (!response.ok()) {
+          errors.push(`Navigation returned HTTP ${response.status()}`);
+        }
+        if (response.status() === 403 || response.status() === 429) {
+          errors.push(`Access denied/throttled: HTTP ${response.status()}`);
+        }
       }
     } catch (navErr) {
       errors.push(
-        `Navigation: ${navErr instanceof Error ? navErr.message : String(navErr)}`,
+        `Navigation failed: ${navErr instanceof Error ? navErr.message : String(navErr)}`,
       );
-      const html = await page.content().catch(() => "");
-      return { html, finalUrl: page.url(), cookieBannerHandled, errors };
     }
 
     try {
       await page.waitForLoadState("networkidle", {
-        timeout: STABILIZATION_WAIT * 3,
+        timeout: STABILIZATION_WAIT,
       });
-    } catch {
-      await new Promise((r) => setTimeout(r, STABILIZATION_WAIT));
+    } catch (idleErr) {
+      // ignore networkidle timeout
     }
 
-    await new Promise((r) => setTimeout(r, STABILIZATION_WAIT));
-
-    cookieBannerHandled = await tryDismissCookieBanner(page, errors);
-
-    if (cookieBannerHandled) {
-      await new Promise((r) => setTimeout(r, 1000));
+    try {
+      cookieBannerHandled = await tryDismissCookieBanner(page, errors);
+      if (cookieBannerHandled) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      await tryRemoveOverlays(page);
+    } catch (overlayErr) {
+      errors.push(`Overlay removal failed: ${overlayErr instanceof Error ? overlayErr.message : String(overlayErr)}`);
     }
 
-    await tryRemoveOverlays(page);
+    // Hover GNB / Menu items sequentially to trigger hover menus before capturing final content
+    try {
+      const menuSelectors = [
+        "header nav a",
+        "header nav li",
+        ".gnb > li",
+        "#gnb > li",
+        ".menu > li",
+        ".main-menu > li",
+        ".depth1 > li",
+      ];
+      for (const selector of menuSelectors) {
+        const locators = await page.locator(selector).all();
+        for (const locator of locators.slice(0, 30)) {
+          await locator.hover({ timeout: 1000 }).catch(() => {});
+          await new Promise((r) => setTimeout(r, 150));
+        }
+      }
+    } catch (hoverErr) {
+      errors.push(`GNB hover failed: ${hoverErr instanceof Error ? hoverErr.message : String(hoverErr)}`);
+    }
 
-    const html = await page.content();
-    finalUrl = page.url();
+    try {
+      html = await page.content();
+      finalUrl = page.url();
+    } catch (contentErr) {
+      errors.push(`Content extraction failed: ${contentErr instanceof Error ? contentErr.message : String(contentErr)}`);
+    }
 
-    await context.close();
+    await context.close().catch(() => {});
     return { html, finalUrl, cookieBannerHandled, errors };
   } finally {
     await browser.close().catch(() => {});

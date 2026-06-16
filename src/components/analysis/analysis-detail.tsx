@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { AnalyzeApiResponse, SectionError, StackCategory } from "@/types/analysis";
 import { CATEGORY_LABELS } from "@/lib/stack-detection/detect-stack";
+import { useT } from "@/lib/i18n";
+import { IAPreviewTable } from "@/components/ia/IAPreviewTable";
+import { generateIAFromAnalysis } from "@/lib/deep-analyzer/ia-generator";
 
-type Tab = "overview" | "metadata" | "content" | "stack" | "structure" | "links" | "images" | "lighthouse";
+type Tab = "overview" | "metadata" | "content" | "stack" | "structure" | "links" | "images" | "iaPreview";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview", label: "Overview" },
@@ -15,7 +18,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "structure", label: "Structure" },
   { key: "links", label: "Links" },
   { key: "images", label: "Images" },
-  { key: "lighthouse", label: "Lighthouse" },
+  { key: "iaPreview", label: "IA Preview" },
 ];
 
 /* ─── Helpers ─── */
@@ -96,6 +99,22 @@ export function AnalysisDetail({ analysisId }: { analysisId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const t = useT();
+
+  const getTabLabel = (tab: typeof TABS[number]) => {
+    const keyMap: Record<Tab, string> = {
+      overview: "dashboard.overview",
+      metadata: "dashboard.metadata",
+      content: "dashboard.content",
+      stack: "techProfile.title",
+      structure: "dashboard.structure",
+      links: "dashboard.links",
+      images: "dashboard.images",
+      iaPreview: "analysis.tabs.iaPreview",
+    };
+    const translated = t(keyMap[tab.key]);
+    return translated && !translated.startsWith("dashboard.") && !translated.startsWith("techProfile.") && !translated.startsWith("analysis.") ? translated : tab.label;
+  };
 
   useEffect(() => {
     const stored = sessionStorage.getItem(`analysis:${analysisId}`);
@@ -170,7 +189,7 @@ export function AnalysisDetail({ analysisId }: { analysisId: string }) {
                 activeTab === tab.key ? "text-white" : "text-slate-500 hover:text-slate-300 active:text-slate-200"
               }`}
             >
-              {tab.label}
+              {getTabLabel(tab)}
               {sectionHasError(tab.key) && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-red-500" />}
               {activeTab === tab.key && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-indigo-500" />}
             </button>
@@ -189,7 +208,7 @@ export function AnalysisDetail({ analysisId }: { analysisId: string }) {
         {activeTab === "structure" && <StructureTab data={data} />}
         {activeTab === "links" && <LinksTab data={data} />}
         {activeTab === "images" && <ImagesTab data={data} />}
-        {activeTab === "lighthouse" && <LighthouseTab data={data} />}
+        {activeTab === "iaPreview" && <IAPreviewTab data={data} />}
       </div>
     </section>
   );
@@ -198,8 +217,23 @@ export function AnalysisDetail({ analysisId }: { analysisId: string }) {
 /* ─── OVERVIEW TAB ─── */
 
 function OverviewTab({ data, onNavigate }: { data: AnalyzeApiResponse; onNavigate: (tab: Tab) => void }) {
-  const lh = data.data.lighthouse;
   const domain = (() => { try { return new URL(data.url).hostname; } catch { return data.url; } })();
+  const t = useT();
+
+  const getTabLabel = (key: Tab, defaultLabel: string) => {
+    const keyMap: Record<Tab, string> = {
+      overview: "dashboard.overview",
+      metadata: "dashboard.metadata",
+      content: "dashboard.content",
+      stack: "techProfile.title",
+      structure: "dashboard.structure",
+      links: "dashboard.links",
+      images: "dashboard.images",
+      iaPreview: "analysis.tabs.iaPreview",
+    };
+    const translated = t(keyMap[key]);
+    return translated && !translated.startsWith("dashboard.") && !translated.startsWith("techProfile.") && !translated.startsWith("analysis.") ? translated : defaultLabel;
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -220,8 +254,6 @@ function OverviewTab({ data, onNavigate }: { data: AnalyzeApiResponse; onNavigat
           sub={`${data.data.links.filter((l) => l.isInternal).length} int · ${data.data.links.filter((l) => !l.isInternal).length} ext`} />
         <MetricCard label="Images" value={data.data.images.length}
           sub={`${data.data.images.filter((i) => i.isLazy).length} lazy`} />
-        <MetricCard label="Performance" value={lh.performanceScore ?? "—"} color={scoreColor(lh.performanceScore)} />
-        <MetricCard label="SEO" value={lh.seoScore ?? "—"} color={scoreColor(lh.seoScore)} />
         <MetricCard label="Errors" value={data.errors.length} color={data.errors.length > 0 ? "red" : "green"}
           sub={data.errors.length === 0 ? "All OK" : data.errors.map((e) => e.section).join(", ")} />
       </div>
@@ -258,7 +290,7 @@ function OverviewTab({ data, onNavigate }: { data: AnalyzeApiResponse; onNavigat
                   hasError ? "border-red-800/50 bg-red-950/20" : "border-slate-800 bg-slate-900/50"
                 }`}
               >
-                <span className="font-medium text-white">{tab.label}</span>
+                <span className="font-medium text-white">{getTabLabel(tab.key, tab.label)}</span>
                 {hasError && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-red-500" />}
               </button>
             );
@@ -708,94 +740,6 @@ function ImagesTab({ data }: { data: AnalyzeApiResponse }) {
   );
 }
 
-/* ─── LIGHTHOUSE TAB ─── */
-
-function formatMs(v: number | null): string {
-  if (v === null) return "—";
-  return v >= 1000 ? `${(v / 1000).toFixed(1)} s` : `${Math.round(v)} ms`;
-}
-
-function LighthouseTab({ data }: { data: AnalyzeApiResponse }) {
-  const lh = data.data.lighthouse;
-  if (!lh) return <EmptyState text="No Lighthouse data available." />;
-
-  const allNull = lh.performanceScore === null && lh.accessibilityScore === null;
-  if (allNull) {
-    const lhError = data.errors.find((e) => e.section === "lighthouse");
-    return (
-      <SectionCard>
-        <p className="text-sm font-medium text-red-400">Lighthouse analysis unavailable</p>
-        {lhError && <p className="mt-1 break-words text-xs text-red-300">{lhError.message}</p>}
-        <p className="mt-2 text-xs text-slate-500">Ensure Google Chrome is installed locally, or configure a PAGESPEED_API_KEY.</p>
-      </SectionCard>
-    );
-  }
-
-  const insights = data.data.lighthouseInsights ?? [];
-  const categories = [
-    { label: "Performance", value: lh.performanceScore },
-    { label: "Accessibility", value: lh.accessibilityScore },
-    { label: "Best Practices", value: lh.bestPracticesScore },
-    { label: "SEO", value: lh.seoScore },
-  ];
-  const vitals = [
-    { label: "LCP", full: "Largest Contentful Paint", value: lh.lcp, format: formatMs, good: 2500, poor: 4000 },
-    { label: "FCP", full: "First Contentful Paint", value: lh.fcp, format: formatMs, good: 1800, poor: 3000 },
-    { label: "TBT", full: "Total Blocking Time", value: lh.tbt, format: formatMs, good: 200, poor: 600 },
-    { label: "CLS", full: "Cumulative Layout Shift", value: lh.cls, format: (v: number | null) => (v !== null ? v.toFixed(3) : "—"), good: 0.1, poor: 0.25 },
-    { label: "INP", full: "Interaction to Next Paint", value: lh.inp, format: formatMs, good: 200, poor: 500 },
-  ];
-
-  return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-4">
-        {categories.map((cat) => (
-          <MetricCard key={cat.label} label={cat.label} value={cat.value ?? "—"} color={scoreColor(cat.value)} />
-        ))}
-      </div>
-
-      <SectionCard>
-        <h3 className="mb-3 text-xs font-medium text-slate-200 sm:text-sm">Core Web Vitals</h3>
-        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 sm:gap-2 lg:grid-cols-3">
-          {vitals.map((v) => {
-            const status = v.value === null ? "unknown" : v.value > v.poor ? "poor" : v.value > v.good ? "needs-work" : "good";
-            const dot = status === "good" ? "bg-green-500" : status === "needs-work" ? "bg-orange-500" : status === "poor" ? "bg-red-500" : "bg-slate-600";
-            return (
-              <div key={v.label} className="flex items-center gap-2 rounded border border-slate-800 px-2.5 py-2 sm:gap-3 sm:px-3">
-                <div className={`h-2 w-2 shrink-0 rounded-full sm:h-2.5 sm:w-2.5 ${dot}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-1 sm:gap-2">
-                    <span className="text-xs font-medium text-white sm:text-sm">{v.label}</span>
-                    <span className="shrink-0 text-xs font-mono text-white sm:text-sm">{v.format(v.value)}</span>
-                  </div>
-                  <p className="truncate text-[10px] text-slate-500 sm:text-xs">{v.full}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </SectionCard>
-
-      {insights.length > 0 && (
-        <SectionCard>
-          <h3 className="mb-3 text-xs font-medium text-slate-200 sm:text-sm">Opportunities &amp; Diagnostics ({insights.length})</h3>
-          <div className="space-y-2">
-            {insights.map((ins, i) => (
-              <div key={i} className="flex items-start gap-2 rounded border border-slate-800 px-2.5 py-2 sm:px-3">
-                <Badge color={ins.severity === "high" ? "red" : ins.severity === "medium" ? "orange" : "yellow"}>{ins.severity}</Badge>
-                <div className="min-w-0">
-                  <p className="break-words text-xs text-white sm:text-sm">{ins.title}</p>
-                  {ins.description && <p className="mt-0.5 break-words text-[11px] text-slate-500 sm:text-xs">{ins.description}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
-    </div>
-  );
-}
-
 /* ─── EMPTY STATE ─── */
 
 function EmptyState({ text }: { text: string }) {
@@ -804,4 +748,11 @@ function EmptyState({ text }: { text: string }) {
       <p className="text-xs text-slate-500 sm:text-sm">{text}</p>
     </div>
   );
+}
+
+/* ─── IA PREVIEW TAB ─── */
+
+function IAPreviewTab({ data }: { data: AnalyzeApiResponse }) {
+  const iaRows = useMemo(() => generateIAFromAnalysis(data), [data]);
+  return <IAPreviewTable rows={iaRows} sourceUrl={data.url} />;
 }

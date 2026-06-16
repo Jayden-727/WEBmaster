@@ -3,12 +3,16 @@ import { isRendererAvailable, renderPage } from "./page-renderer";
 import type { CrawlStrategyUsed, CrawlStrategyPreference } from "@/types/deep-analysis";
 
 export interface SmartFetchResult {
-  html: string;
+  url: string;
   finalUrl: string;
-  strategy: CrawlStrategyUsed;
+  html: string;
+  strategyUsed: "fetch" | "playwright" | "fallback";
+  strategy: CrawlStrategyUsed; // keep for backward compatibility
   contentScore: number;
   cookieBannerHandled: boolean;
-  errors: string[];
+  error?: string | null;
+  warnings?: string[];
+  statusCode?: number;
 }
 
 const BROWSER_HEADERS: Record<string, string> = {
@@ -74,102 +78,86 @@ export async function smartFetch(
 ): Promise<SmartFetchResult> {
   const errors: string[] = [];
 
-  const fetch1 = await httpFetch(url);
-
-  if (fetch1.error) {
-    errors.push(`Fetch: ${fetch1.error}`);
-
-    if (preference === "fetch") {
-      throw new Error(fetch1.error);
+  if (preference === "strong") {
+    const available = await isRendererAvailable();
+    if (available) {
+      try {
+        const result = await renderPage(url);
+        const content = scoreContent(result.html);
+        if (result.html && result.html.length > 1000) {
+          return {
+            url,
+            html: result.html,
+            finalUrl: result.finalUrl,
+            strategyUsed: "playwright",
+            strategy: "rendered",
+            contentScore: content.score,
+            cookieBannerHandled: result.cookieBannerHandled,
+            warnings: result.errors,
+          };
+        } else {
+          errors.push("Rendered HTML was empty or too small");
+        }
+      } catch (err) {
+        errors.push(`Render: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    } else {
+      errors.push("Renderer not available");
     }
 
-    return tryRenderFallback(url, errors, "fallback-rendered");
-  }
-
-  const content = scoreContent(fetch1.html);
-
-  if (preference === "fetch" || content.score >= CONTENT_ADEQUATE_THRESHOLD) {
+    // Fall back to fetch if rendering fails
+    const fetchRes = await httpFetch(url);
+    if (fetchRes.error) {
+      errors.push(`Fetch fallback: ${fetchRes.error}`);
+      return {
+        url,
+        finalUrl: fetchRes.finalUrl,
+        html: "",
+        strategyUsed: "fallback",
+        strategy: "fallback-rendered",
+        contentScore: 0,
+        cookieBannerHandled: false,
+        error: `Strong mode failed rendering and fetch: ${errors.join(" → ")}`,
+        warnings: errors,
+      };
+    }
+    const content = scoreContent(fetchRes.html);
     return {
-      html: fetch1.html,
-      finalUrl: fetch1.finalUrl,
+      url,
+      html: fetchRes.html,
+      finalUrl: fetchRes.finalUrl,
+      strategyUsed: "fetch",
       strategy: "fetch",
       contentScore: content.score,
       cookieBannerHandled: false,
-      errors,
+      warnings: errors,
     };
   }
 
-  errors.push(
-    `Low content score (${content.score}): shell=${content.isLikelyShell}, text=${content.bodyTextLength}b, headings=${content.headingCount}, links=${content.internalLinkCount}`,
-  );
-
-  return tryRenderFallback(url, errors, "fallback-rendered", {
-    fetchHtml: fetch1.html,
-    fetchScore: content.score,
-    fetchFinalUrl: fetch1.finalUrl,
-  });
-}
-
-async function tryRenderFallback(
-  url: string,
-  errors: string[],
-  strategyLabel: CrawlStrategyUsed,
-  fetchFallback?: {
-    fetchHtml: string;
-    fetchScore: number;
-    fetchFinalUrl: string;
-  },
-): Promise<SmartFetchResult> {
-  const available = await isRendererAvailable();
-
-  if (available) {
-    try {
-      const result = await renderPage(url);
-      const content = scoreContent(result.html);
-      errors.push(...result.errors);
-
-      if (
-        fetchFallback &&
-        content.score <= fetchFallback.fetchScore &&
-        fetchFallback.fetchScore > 0
-      ) {
-        return {
-          html: fetchFallback.fetchHtml,
-          finalUrl: fetchFallback.fetchFinalUrl,
-          strategy: "fetch",
-          contentScore: fetchFallback.fetchScore,
-          cookieBannerHandled: false,
-          errors,
-        };
-      }
-
-      return {
-        html: result.html,
-        finalUrl: result.finalUrl,
-        strategy: strategyLabel,
-        contentScore: content.score,
-        cookieBannerHandled: result.cookieBannerHandled,
-        errors,
-      };
-    } catch (err) {
-      errors.push(
-        `Render: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  } else {
-    errors.push("Renderer not available — using fetch result");
-  }
-
-  if (fetchFallback && fetchFallback.fetchHtml) {
+  // preference === "fetch"
+  const fetchRes = await httpFetch(url);
+  if (fetchRes.error) {
     return {
-      html: fetchFallback.fetchHtml,
-      finalUrl: fetchFallback.fetchFinalUrl,
+      url,
+      finalUrl: fetchRes.finalUrl,
+      html: "",
+      strategyUsed: "fetch",
       strategy: "fetch",
-      contentScore: fetchFallback.fetchScore,
+      contentScore: 0,
       cookieBannerHandled: false,
-      errors,
+      error: fetchRes.error,
+      warnings: [`Fetch: ${fetchRes.error}`],
     };
   }
-
-  throw new Error(`All strategies failed: ${errors.join(" → ")}`);
+  const content = scoreContent(fetchRes.html);
+  return {
+    url,
+    html: fetchRes.html,
+    finalUrl: fetchRes.finalUrl,
+    strategyUsed: "fetch",
+    strategy: "fetch",
+    contentScore: content.score,
+    cookieBannerHandled: false,
+    warnings: [],
+  };
 }

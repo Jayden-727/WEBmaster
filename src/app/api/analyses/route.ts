@@ -5,7 +5,7 @@ export async function GET() {
   const supabase = getServiceClient();
 
   if (!supabase) {
-    return NextResponse.json({ items: [], error: "Database not configured" });
+    return NextResponse.json({ items: [], databaseConfigured: false, error: "Database not configured" });
   }
 
   const { data, error } = await supabase
@@ -16,7 +16,7 @@ export async function GET() {
 
   if (error) {
     console.error("[API /analyses] query error:", error.message);
-    return NextResponse.json({ items: [], error: error.message });
+    return NextResponse.json({ items: [], databaseConfigured: true, error: error.message });
   }
 
   const items = (data ?? []).map((row) => ({
@@ -28,5 +28,5 @@ export async function GET() {
     createdAt: row.created_at,
   }));
 
-  return NextResponse.json({ items });
+  return NextResponse.json({ items, databaseConfigured: true });
 }

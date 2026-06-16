@@ -1,44 +1,10 @@
 import type { QueueItem, CrawledPage, CrawlMode, CrawlStrategyPreference } from "@/types/deep-analysis";
 import { buildCrawledPage } from "./raw-extractor";
 import { detectPageType } from "./page-type-detector";
-import { isWithinPathScope } from "./site-crawler";
+import { isWithinPathScope, normalizeUrl, shouldSkipUrl, isInternalUrl } from "./site-crawler";
 import { smartFetch } from "./smart-fetcher";
 
-const SKIP_EXTENSIONS = /\.(css|js|json|xml|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|pdf|zip|tar|gz|mp[34]|avi|mov|wmv)$/i;
 const MAX_ABSOLUTE_PAGES = 10_000;
-
-function shouldSkipUrl(href: string): boolean {
-  if (SKIP_EXTENSIONS.test(href)) return true;
-  try {
-    const u = new URL(href);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return true;
-  } catch {
-    return true;
-  }
-  return false;
-}
-
-function isInternalUrl(href: string, rootDomain: string): boolean {
-  try {
-    return new URL(href).hostname.endsWith(rootDomain);
-  } catch {
-    return false;
-  }
-}
-
-function normalizeUrl(href: string): string {
-  try {
-    const u = new URL(href);
-    u.hash = "";
-    u.search = "";
-    let path = u.pathname;
-    if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-    u.pathname = path;
-    return u.href;
-  } catch {
-    return href;
-  }
-}
 
 export interface BatchOptions {
   jobId: string;
@@ -105,9 +71,11 @@ export async function runBatch(opts: BatchOptions): Promise<BatchResult> {
 
     visited.add(normalized);
     lastProcessedUrl = normalized;
-
     try {
       const fetchResult = await smartFetch(normalized, opts.crawlStrategy);
+      if (fetchResult.error) {
+        throw new Error(fetchResult.error);
+      }
 
       const pageType = detectPageType({
         url: normalized,
@@ -145,20 +113,74 @@ export async function runBatch(opts: BatchOptions): Promise<BatchResult> {
       pagesSuccess++;
 
       if (pagesCrawled < effectiveLimit) {
+        let enqueuedCount = 0;
+        const newItems: QueueItem[] = [];
+
         for (const link of crawledPage.rawLinks) {
           if (!link.isInternal) continue;
-          const normLink = normalizeUrl(link.href);
+          const normLink = normalizeUrl(link.href, normalized);
+
           if (visited.has(normLink)) continue;
+          if (queue.some(q => normalizeUrl(q.url, normalized) === normLink) || newItems.some(n => normalizeUrl(n.url, normalized) === normLink)) continue;
           if (shouldSkipUrl(normLink)) continue;
           if (!isWithinPathScope(normLink, opts.allowedPathPrefix)) continue;
           if (item.depth + 1 > effectiveDepth) continue;
 
-          queue.push({
+          newItems.push({
             url: normLink,
             parentUrl: normalized,
             depth: item.depth + 1,
-          });
+            isPriority: link.isPriority,
+            priority: link.priority,
+          } as any);
+          enqueuedCount++;
           newDiscovered++;
+        }
+
+        if (newItems.length > 0) {
+          queue.push(...newItems);
+          queue.sort((a: any, b: any) => {
+            if (a.depth !== b.depth) return a.depth - b.depth;
+            const aPri = a.priority ?? 0;
+            const bPri = b.priority ?? 0;
+            return bPri - aPri;
+          });
+        }
+
+        // Sitemap fallback if it's the seed page (depth 0) and we didn't discover enough links
+        if (item.depth === 0 && queue.length < 5) {
+          try {
+            const { fetchSitemapLinks } = await import("./sitemap-extractor");
+            const sitemapLinks = await fetchSitemapLinks(normalized, opts.rootDomain);
+            const sitemapNewItems: QueueItem[] = [];
+
+            for (const sUrl of sitemapLinks) {
+              const normSUrl = normalizeUrl(sUrl, normalized);
+              if (visited.has(normSUrl)) continue;
+              if (queue.some(q => normalizeUrl(q.url, normalized) === normSUrl) || sitemapNewItems.some(n => normalizeUrl(n.url, normalized) === normSUrl)) continue;
+              if (shouldSkipUrl(normSUrl)) continue;
+              if (!isWithinPathScope(normSUrl, opts.allowedPathPrefix)) continue;
+              
+              sitemapNewItems.push({
+                url: normSUrl,
+                parentUrl: normalized,
+                depth: 1,
+                isPriority: false,
+                priority: 80,
+              } as any);
+              newDiscovered++;
+            }
+
+            if (sitemapNewItems.length > 0) {
+              queue.push(...sitemapNewItems);
+              queue.sort((a: any, b: any) => {
+                if (a.depth !== b.depth) return a.depth - b.depth;
+                const aPri = a.priority ?? 0;
+                const bPri = b.priority ?? 0;
+                return bPri - aPri;
+              });
+            }
+          } catch {}
         }
       }
     } catch (err) {

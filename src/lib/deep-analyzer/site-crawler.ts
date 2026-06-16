@@ -2,8 +2,8 @@ import type { QueueItem, CrawledPage, CrawlStreamEvent, CrawlMode, CrawlStrategy
 import { buildCrawledPage } from "./raw-extractor";
 import { detectPageType } from "./page-type-detector";
 import { smartFetch } from "./smart-fetcher";
+import { normalizeCrawlUrl, isLikelyPageUrl } from "./link-extractor";
 
-const SKIP_EXTENSIONS = /\.(css|js|json|xml|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|pdf|zip|tar|gz|mp[34]|avi|mov|wmv)$/i;
 const PAUSE_BUFFER_MS = 5_000;
 const MAX_ABSOLUTE_PAGES = 10_000;
 
@@ -19,9 +19,22 @@ export function extractDomain(url: string): string {
 
 export function extractPathPrefix(url: string): string {
   try {
-    let path = new URL(url).pathname;
+    const u = new URL(url);
+    let path = u.pathname;
+    
+    // Split into segments
+    const segments = path.split("/");
+    const lastSegment = segments[segments.length - 1];
+    
+    // If last segment contains a dot (e.g. index.do, index.html), remove it to get directory path
+    if (lastSegment && lastSegment.includes(".")) {
+      segments.pop();
+      path = segments.join("/");
+    }
+    
     if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-    return path;
+    if (!path.startsWith("/")) path = "/" + path;
+    return path || "/";
   } catch {
     return "/";
   }
@@ -38,37 +51,22 @@ export function isWithinPathScope(href: string, allowedPathPrefix: string): bool
   }
 }
 
-function isInternalUrl(href: string, rootDomain: string): boolean {
+export function isInternalUrl(href: string, rootDomain: string): boolean {
   try {
-    return new URL(href).hostname.endsWith(rootDomain);
+    const hrefHost = new URL(href).hostname.replace(/^www\./i, "");
+    const rootHost = rootDomain.replace(/^www\./i, "");
+    return hrefHost.endsWith(rootHost);
   } catch {
     return false;
   }
 }
 
-function shouldSkipUrl(href: string): boolean {
-  if (SKIP_EXTENSIONS.test(href)) return true;
-  try {
-    const u = new URL(href);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return true;
-  } catch {
-    return true;
-  }
-  return false;
+export function shouldSkipUrl(href: string): boolean {
+  return !isLikelyPageUrl(href);
 }
 
-function normalizeUrl(href: string): string {
-  try {
-    const u = new URL(href);
-    u.hash = "";
-    u.search = "";
-    let path = u.pathname;
-    if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-    u.pathname = path;
-    return u.href;
-  } catch {
-    return href;
-  }
+export function normalizeUrl(href: string, baseUrl?: string): string {
+  return normalizeCrawlUrl(href, baseUrl || href) ?? href;
 }
 
 export interface CrawlOptions {
@@ -145,9 +143,11 @@ export async function* crawlSite(
     if (!isWithinPathScope(normalized, pathPrefix)) continue;
 
     visited.add(normalized);
-
     try {
       const fetchResult = await smartFetch(normalized, strategyPref);
+      if (fetchResult.error) {
+        throw new Error(fetchResult.error);
+      }
 
       const pageType = detectPageType({
         url: normalized,
@@ -183,21 +183,138 @@ export async function* crawlSite(
       yield { type: "page", page: crawledPage };
 
       if (pagesCrawled < effectiveLimit) {
-        for (const link of crawledPage.rawLinks) {
-          if (!link.isInternal) continue;
-          const normLink = normalizeUrl(link.href);
-          if (visited.has(normLink)) continue;
-          if (shouldSkipUrl(normLink)) continue;
-          if (!isWithinPathScope(normLink, pathPrefix)) continue;
-          if (item.depth + 1 > effectiveDepth) continue;
+        let extractedCount = crawledPage.rawLinks.length;
+        let internalCount = 0;
+        let enqueuedCount = 0;
+        let skippedExternal = 0;
+        let skippedAsset = 0;
+        let skippedDuplicate = 0;
+        let skippedDepth = 0;
+        let skippedScope = 0;
 
-          queue.push({
+        const sourceCounts: Record<string, number> = {};
+        const newItems: QueueItem[] = [];
+
+        for (const link of crawledPage.rawLinks) {
+          const linkSrc = link.source || "unknown";
+          sourceCounts[linkSrc] = (sourceCounts[linkSrc] || 0) + 1;
+
+          if (!link.isInternal) {
+            skippedExternal++;
+            continue;
+          }
+          internalCount++;
+          const normLink = normalizeUrl(link.href, normalized);
+
+          if (visited.has(normLink)) {
+            skippedDuplicate++;
+            continue;
+          }
+          if (queue.some(q => normalizeUrl(q.url, normalized) === normLink) || newItems.some(n => normalizeUrl(n.url, normalized) === normLink)) {
+            skippedDuplicate++;
+            continue;
+          }
+          if (shouldSkipUrl(normLink)) {
+            skippedAsset++;
+            continue;
+          }
+          if (!isWithinPathScope(normLink, pathPrefix)) {
+            skippedScope++;
+            continue;
+          }
+          if (item.depth + 1 > effectiveDepth) {
+            skippedDepth++;
+            continue;
+          }
+
+          newItems.push({
             url: normLink,
             parentUrl: normalized,
             depth: item.depth + 1,
+            isPriority: link.isPriority,
+            priority: link.priority,
+          } as any);
+          enqueuedCount++;
+        }
+
+        if (newItems.length > 0) {
+          queue.push(...newItems);
+          queue.sort((a: any, b: any) => {
+            if (a.depth !== b.depth) return a.depth - b.depth;
+            const aPri = a.priority ?? 0;
+            const bPri = b.priority ?? 0;
+            return bPri - aPri;
           });
 
-          yield { type: "discovered", url: normLink, depth: item.depth + 1 };
+          for (const newItem of newItems) {
+            yield { type: "discovered", url: newItem.url, depth: newItem.depth };
+          }
+        }
+
+        if (process.env.NODE_ENV === "development") {
+          console.log(`[DeepAnalyzer] URL: ${normalized}`);
+          console.log(`[DeepAnalyzer] Links Extracted Total: ${extractedCount}`);
+          Object.entries(sourceCounts).forEach(([src, count]) => {
+            console.log(`  - ${src}: ${count}`);
+          });
+          console.log(`[DeepAnalyzer] internal links: ${internalCount}`);
+          console.log(`[DeepAnalyzer] enqueued links: ${enqueuedCount}`);
+          console.log(`[DeepAnalyzer] skipped external: ${skippedExternal}`);
+          console.log(`[DeepAnalyzer] skipped asset: ${skippedAsset}`);
+          console.log(`[DeepAnalyzer] skipped duplicate: ${skippedDuplicate}`);
+          console.log(`[DeepAnalyzer] skipped depth: ${skippedDepth}`);
+          console.log(`[DeepAnalyzer] skipped scope: ${skippedScope}`);
+        }
+
+        // Sitemap fallback if it's the seed page (depth 0) and we didn't discover enough links
+        if (item.depth === 0 && queue.length < 5) {
+          if (process.env.NODE_ENV === "development") {
+            console.log(`[DeepAnalyzer] Low link count (${queue.length}) on seed page. Triggering sitemap fallback...`);
+          }
+          try {
+            const { fetchSitemapLinks } = await import("./sitemap-extractor");
+            const sitemapLinks = await fetchSitemapLinks(rootUrl, domain);
+            let sitemapEnqueued = 0;
+            const sitemapNewItems: QueueItem[] = [];
+
+            for (const sUrl of sitemapLinks) {
+              const normSUrl = normalizeUrl(sUrl, rootUrl);
+              if (visited.has(normSUrl)) continue;
+              if (queue.some(q => normalizeUrl(q.url, rootUrl) === normSUrl) || sitemapNewItems.some(n => normalizeUrl(n.url, rootUrl) === normSUrl)) continue;
+              if (shouldSkipUrl(normSUrl)) continue;
+              if (!isWithinPathScope(normSUrl, pathPrefix)) continue;
+              
+              sitemapNewItems.push({
+                url: normSUrl,
+                parentUrl: normalized,
+                depth: 1,
+                isPriority: false,
+                priority: 80,
+              } as any);
+              sitemapEnqueued++;
+            }
+
+            if (sitemapNewItems.length > 0) {
+              queue.push(...sitemapNewItems);
+              queue.sort((a: any, b: any) => {
+                if (a.depth !== b.depth) return a.depth - b.depth;
+                const aPri = a.priority ?? 0;
+                const bPri = b.priority ?? 0;
+                return bPri - aPri;
+              });
+
+              for (const sItem of sitemapNewItems) {
+                yield { type: "discovered", url: sItem.url, depth: sItem.depth };
+              }
+            }
+            if (process.env.NODE_ENV === "development") {
+              console.log(`[DeepAnalyzer] Sitemap fallback added ${sitemapEnqueued} links to queue.`);
+            }
+          } catch (smErr) {
+            if (process.env.NODE_ENV === "development") {
+              console.error("[DeepAnalyzer] Sitemap fallback error:", smErr);
+            }
+          }
         }
       }
     } catch (err) {

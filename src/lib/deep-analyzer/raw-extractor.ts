@@ -1,12 +1,13 @@
 import * as cheerio from "cheerio";
 import type { CrawledPage, CrawledPageTech, CrawlStrategyUsed } from "@/types/deep-analysis";
 import { detectStack } from "@/lib/stack-detection/detect-stack";
+import { extractLinksFromHtml } from "./link-extractor";
 
 interface RawExtractionResult {
   title: string | null;
   rawMetadata: Record<string, string | null>;
   rawHeadings: { level: number; text: string }[];
-  rawLinks: { href: string; text: string; isInternal: boolean }[];
+  rawLinks: CrawledPage["rawLinks"];
   rawImages: { src: string; alt: string }[];
   rawTextPreview: string;
   detectedTech: CrawledPageTech[];
@@ -16,6 +17,7 @@ export function extractRawPageData(
   html: string,
   pageUrl: string,
   rootDomain: string,
+  source: "static-html" | "rendered-dom" = "static-html",
 ): RawExtractionResult {
   const $ = cheerio.load(html);
 
@@ -47,30 +49,19 @@ export function extractRawPageData(
     if (text) rawHeadings.push({ level, text });
   });
 
-  const rawLinks: RawExtractionResult["rawLinks"] = [];
-  const seenHrefs = new Set<string>();
-  $("a[href]").each((_, el) => {
-    const href = $(el).attr("href") ?? "";
-    const text = $(el).text().trim();
-    if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
-
-    let resolved = href;
-    try {
-      resolved = new URL(href, pageUrl).href;
-    } catch {
-      return;
-    }
-
-    if (seenHrefs.has(resolved)) return;
-    seenHrefs.add(resolved);
-
-    let isInternal = false;
-    try {
-      isInternal = new URL(resolved).hostname.endsWith(rootDomain);
-    } catch {}
-
-    rawLinks.push({ href: resolved, text: text.slice(0, 200), isInternal });
-  });
+  const rawLinks: CrawledPage["rawLinks"] = extractLinksFromHtml({
+    html,
+    baseUrl: pageUrl,
+    rootUrl: `https://${rootDomain}`,
+    source,
+  }).map((link) => ({
+    href: link.normalizedUrl,
+    text: link.text || "Auto-detected Link",
+    isInternal: link.priority > 0,
+    isPriority: link.priority >= 90,
+    source: link.source,
+    priority: link.priority,
+  }));
 
   const rawImages: { src: string; alt: string }[] = [];
   $("img[src]").each((_, el) => {
@@ -116,7 +107,13 @@ export function buildCrawledPage(
   meta?: BuildPageMeta,
 ): CrawledPage {
   try {
-    const raw = extractRawPageData(html, url, rootDomain);
+    const isRendered = meta?.crawlStrategy === "rendered" || meta?.crawlStrategy === "fallback-rendered";
+    const raw = extractRawPageData(
+      html,
+      url,
+      rootDomain,
+      isRendered ? "rendered-dom" : "static-html",
+    );
     return {
       url,
       parentUrl,

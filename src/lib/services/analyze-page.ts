@@ -1,4 +1,3 @@
-import { runFullLighthouseAnalysis } from "@/lib/lighthouse/run-lighthouse";
 import { extractContent } from "@/lib/parser/content";
 import { extractLinksAndImages } from "@/lib/parser/links-images";
 import { extractMetadata } from "@/lib/parser/metadata";
@@ -136,18 +135,8 @@ export async function analyzePage(input: AnalyzeRequest): Promise<AnalyzeApiResp
   const structR = runStep("structure", () => detectStructure(rawHtml));
   if (structR.error) errors.push(structR.error);
   const structure: StructureSignalResult[] = structR.data ?? [];
-
-  const lhR = await runAsyncStep("lighthouse", () => runFullLighthouseAnalysis(input.url));
-  if (lhR.error) {
-    lhR.error.fallbackUsed = "Scores unavailable — both local Lighthouse and PageSpeed API failed";
-    errors.push(lhR.error);
-  }
-  const lighthouse = lhR.data?.metrics ?? emptyLighthouse;
-  const lighthouseInsights: LighthouseInsightCard[] = lhR.data?.insights ?? [];
-
-  if (lhR.data?.source === "pagespeed-api") {
-    warnings.push("Lighthouse scores provided by PageSpeed Insights API (local Chrome was unavailable)");
-  }
+  const lighthouse = emptyLighthouse;
+  const lighthouseInsights: LighthouseInsightCard[] = [];
 
   if (input.mode === "rendered") {
     warnings.push("Rendered DOM mode is not yet implemented — used source HTML instead");

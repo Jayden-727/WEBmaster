@@ -184,7 +184,6 @@ function CapabilitiesSection() {
     { icon: Grid3X3, label: t("dashboard.structure"), color: "text-pink-400" },
     { icon: Link2, label: t("dashboard.links"), color: "text-amber-400" },
     { icon: ImageIcon, label: t("dashboard.images"), color: "text-emerald-400" },
-    { icon: Gauge, label: t("dashboard.lighthouse"), color: "text-orange-400" },
   ];
 
   return (

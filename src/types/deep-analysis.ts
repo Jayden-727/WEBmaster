@@ -46,7 +46,7 @@ export interface CrawledPage {
   status: "success" | "error";
   rawMetadata: Record<string, string | null>;
   rawHeadings: { level: number; text: string }[];
-  rawLinks: { href: string; text: string; isInternal: boolean }[];
+  rawLinks: { href: string; text: string; isInternal: boolean; isPriority?: boolean; source?: string; priority?: number }[];
   rawImages: { src: string; alt: string }[];
   rawTextPreview: string;
   pageTypeGuess: string | null;
@@ -75,6 +75,8 @@ export interface DeepAnalysisJob {
   totalFailed: number;
   startedAt: string;
   completedAt?: string;
+  isTemporary?: boolean;
+  queueLength?: number;
 }
 
 export type CrawlStreamEvent =
@@ -119,4 +121,17 @@ export interface MarkdownTemplate {
   sections: MarkdownTemplateSections;
   titleFormat: "h1" | "h2";
   includeRawHtml: boolean;
+}
+
+export interface IARow {
+  screenId: string;
+  depth0: string;
+  depth1: string;
+  depth2?: string | null;
+  depth3?: string | null;
+  contents?: string | null;
+  comments?: string | null;
+  asIsUrl: string;
+  pageType?: string | null;
+  confidence?: number | null;
 }

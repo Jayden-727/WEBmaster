@@ -27,8 +27,11 @@ import type {
 } from "@/types/deep-analysis";
 import { useT } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { generateIA } from "@/lib/deep-analyzer/ia-generator";
+import { generateIACsv, exportStyledIAXlsx, buildIAExportFilename } from "@/lib/deep-analyzer/export-service";
+import type { IARow } from "@/types/deep-analysis";
 
-type Tab = "inventory" | "structure" | "techProfile" | "raw" | "refinement" | "export";
+type Tab = "inventory" | "structure" | "iaView" | "techProfile" | "raw" | "refinement" | "export";
 type TargetScope = "all" | "single";
 
 const PAGE_TYPE_COLORS: Record<string, string> = {
@@ -80,6 +83,8 @@ export default function DeepAnalysisPage({
         totalFailed: data.totalFailed ?? 0,
         startedAt: data.startedAt,
         completedAt: data.completedAt,
+        isTemporary: data.isTemporary,
+        queueLength: data.queueLength ?? 0,
       };
       setJob(jobData);
       setLoading(false);
@@ -129,6 +134,50 @@ export default function DeepAnalysisPage({
     return () => clearInterval(interval);
   }, [job?.status, fetchJob, triggerBatch]);
 
+  // Hook definitions (useMemos)
+  const successPages = useMemo(() => {
+    return job ? job.pages.filter((p) => p.status === "success") : [];
+  }, [job?.pages]);
+
+  const errorPages = useMemo(() => {
+    return job ? job.pages.filter((p) => p.status === "error") : [];
+  }, [job?.pages]);
+
+  const typeStats = useMemo(() => {
+    if (!job) return {} as Record<string, number>;
+    return job.pages.reduce(
+      (acc, p) => {
+        const tp = p.pageTypeGuess ?? "other";
+        acc[tp] = (acc[tp] ?? 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+  }, [job?.pages]);
+
+  const selectedPage = useMemo(() => {
+    if (!job || !selectedPageUrl) return null;
+    return job.pages.find((p) => p.url === selectedPageUrl) ?? null;
+  }, [job?.pages, selectedPageUrl]);
+
+  const targetPages = useMemo(() => {
+    if (!job) return [];
+    return targetScope === "all"
+      ? job.pages
+      : selectedPage
+        ? [selectedPage]
+        : [];
+  }, [job?.pages, targetScope, selectedPage]);
+
+  const totalExtractedLinks = useMemo(() => {
+    return successPages.reduce((sum, p) => sum + (p.rawLinks?.length ?? 0), 0);
+  }, [successPages]);
+
+  const totalInternalLinks = useMemo(() => {
+    return successPages.reduce((sum, p) => sum + (p.rawLinks?.filter(l => l.isInternal).length ?? 0), 0);
+  }, [successPages]);
+
+  // Early returns
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -160,33 +209,12 @@ export default function DeepAnalysisPage({
   const tabs: { id: Tab; label: string; icon: typeof List }[] = [
     { id: "inventory", label: t("deepResults.inventory"), icon: List },
     { id: "structure", label: t("deepResults.siteStructure"), icon: Network },
+    { id: "iaView", label: t("deepResults.iaView"), icon: Layers },
     { id: "techProfile", label: t("techProfile.title"), icon: Cpu },
     { id: "raw", label: t("deepResults.rawData"), icon: FileCode },
     { id: "refinement", label: t("deepResults.refinement"), icon: FileText },
     { id: "export", label: t("export.title"), icon: Download },
   ];
-
-  const successPages = job.pages.filter((p) => p.status === "success");
-  const errorPages = job.pages.filter((p) => p.status === "error");
-  const typeStats = job.pages.reduce(
-    (acc, p) => {
-      const tp = p.pageTypeGuess ?? "other";
-      acc[tp] = (acc[tp] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
-
-  const selectedPage = selectedPageUrl
-    ? job.pages.find((p) => p.url === selectedPageUrl) ?? null
-    : null;
-
-  const targetPages =
-    targetScope === "all"
-      ? job.pages
-      : selectedPage
-        ? [selectedPage]
-        : [];
 
   return (
     <div className="min-h-screen">
@@ -218,6 +246,14 @@ export default function DeepAnalysisPage({
       </nav>
 
       <main className="mx-auto w-full max-w-7xl px-4 pb-12 pt-6 sm:px-6 sm:pt-8">
+        {job.isTemporary && (
+          <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-indigo-800/40 bg-indigo-950/20 px-3.5 py-2.5 text-xs text-indigo-300">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-indigo-400" />
+            <p className="font-medium">
+              {t("deepResults.fallbackNotice") || "Temporary mode: crawl results are not persisted after server restart."}
+            </p>
+          </div>
+        )}
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -253,15 +289,14 @@ export default function DeepAnalysisPage({
             }`}>{job.crawlStrategy === "strong" ? t("deepAnalyzer.strategyStrong") : t("deepAnalyzer.strategyFetch")}</span></span>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5 sm:gap-3">
-            <SummaryCard label={t("deepResults.pagesCrawled")} value={`${job.totalProcessed} / ${job.mode === "max" ? "10K" : job.maxPages}`} />
-            <SummaryCard label={t("deepResults.successful")} value={successPages.length} color="text-green-400" />
-            <SummaryCard label={t("common.errors")} value={errorPages.length} color="text-red-400" />
-            <SummaryCard
-              label={t("deepResults.maxDepthReached")}
-              value={Math.max(0, ...job.pages.map((p) => p.depth))}
-            />
-            <SummaryCard label={t("deepResults.mode")} value={job.mode === "max" ? "MAX" : t("deepResults.modeAll")} />
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-7 sm:gap-3">
+            <SummaryCard label="Pages Crawled" value={job.totalProcessed} />
+            <SummaryCard label="Links Extracted" value={totalExtractedLinks} color="text-indigo-400" />
+            <SummaryCard label="Internal Links Found" value={totalInternalLinks} color="text-emerald-400" />
+            <SummaryCard label="Queued Links" value={job.queueLength ?? 0} color="text-amber-400" />
+            <SummaryCard label="Failed Pages" value={job.totalFailed} color="text-red-400" />
+            <SummaryCard label="Mode" value={job.crawlStrategy === "strong" ? "Strong" : "HTML Fetch"} color="text-cyan-400" />
+            <SummaryCard label="Storage" value={job.isTemporary ? "Memory" : "Supabase"} color="text-purple-400" />
           </div>
 
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -379,6 +414,13 @@ export default function DeepAnalysisPage({
           />
         )}
         {tab === "structure" && <StructureTab pages={job.pages} rootUrl={job.rootUrl} />}
+        {tab === "iaView" && (
+          <IATab
+            allPages={job.pages}
+            scope={targetScope}
+            selectedPageUrl={selectedPageUrl}
+          />
+        )}
         {tab === "techProfile" && <TechProfileTab pages={job.pages} scope={targetScope} selectedPageUrl={selectedPageUrl} />}
         {tab === "raw" && <RawDataTab pages={targetPages} />}
         {tab === "refinement" && (
@@ -492,6 +534,162 @@ function SummaryCard({
     <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
       <p className={`text-lg font-bold ${color} sm:text-xl`}>{value}</p>
       <p className="text-[10px] text-slate-500 sm:text-[11px]">{label}</p>
+    </div>
+  );
+}
+
+function IATab({
+  allPages,
+  scope,
+  selectedPageUrl,
+}: {
+  allPages: CrawledPage[];
+  scope: TargetScope;
+  selectedPageUrl: string | null;
+}) {
+  const t = useT();
+
+  const allIaRows = useMemo(() => generateIA(allPages), [allPages]);
+
+  const iaRows = useMemo(() => {
+    if (scope === "single" && selectedPageUrl) {
+      return allIaRows.filter((row) => row.asIsUrl === selectedPageUrl);
+    }
+    return allIaRows;
+  }, [allIaRows, scope, selectedPageUrl]);
+
+  // Display rows with Depth 0 shown only on group first row
+  const displayRows = useMemo(() => {
+    let prevDepth0 = "";
+    return iaRows.map((row) => {
+      const showDepth0 = row.depth0 !== prevDepth0;
+      prevDepth0 = row.depth0;
+      return { ...row, displayDepth0: showDepth0 ? row.depth0 : "" };
+    });
+  }, [iaRows]);
+
+  const rootUrl = allPages.length > 0 ? allPages[0].url : "";
+
+  const handleDownloadCsv = () => {
+    const csvContent = generateIACsv(allIaRows);
+    let domain = "site";
+    if (allPages.length > 0) {
+      try {
+        domain = new URL(allPages[0].url).hostname.replace(/\./g, "_");
+      } catch {}
+    }
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    downloadText(csvContent, `${domain}_ia_export_${today}.csv`);
+  };
+
+  const handleDownloadExcel = async () => {
+    const blob = await exportStyledIAXlsx(allIaRows, rootUrl);
+    const filename = buildIAExportFilename(rootUrl);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-slate-500 sm:text-sm font-medium text-slate-400">
+          Information Architecture (IA) layout generated automatically from crawling results.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleDownloadExcel}
+            disabled={allIaRows.length === 0}
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-40"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download Styled IA XLSX
+          </button>
+          <button
+            onClick={handleDownloadCsv}
+            disabled={allIaRows.length === 0}
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-700 disabled:opacity-40"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download Raw CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/40">
+        <table className="w-full min-w-[1000px] border-collapse text-left text-xs">
+          <thead>
+            <tr className="border-b border-slate-800 bg-slate-950/60 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              <th className="px-3 py-3 w-32">Screen ID</th>
+              <th className="px-3 py-3 w-32">Depth 0</th>
+              <th className="px-3 py-3 w-32">Depth 1</th>
+              <th className="px-3 py-3 w-32">Depth 2</th>
+              <th className="px-3 py-3 w-32">Depth 3</th>
+              <th className="px-4 py-3">Contents</th>
+              <th className="px-4 py-3 w-64">Comments</th>
+              <th className="px-3 py-3 w-20">Link</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/60">
+            {displayRows.map((row) => {
+              const isGroupStart = !!row.displayDepth0;
+
+              return (
+                <tr
+                  key={row.screenId}
+                  className={`transition hover:bg-slate-800/30 ${isGroupStart ? "bg-slate-800/10" : ""}`}
+                >
+                  <td className="whitespace-nowrap px-3 py-2.5 font-mono text-slate-400">
+                    {row.screenId}
+                  </td>
+                  <td className={`px-3 py-2.5 font-semibold transition-all ${
+                    isGroupStart ? "text-indigo-400" : "text-transparent select-none"
+                  }`}>
+                    {row.displayDepth0 || "\u00A0"}
+                  </td>
+                  <td className="px-3 py-2.5 text-white">
+                    {row.depth1}
+                  </td>
+                  <td className="px-3 py-2.5 text-slate-300">
+                    {row.depth2 ?? "—"}
+                  </td>
+                  <td className="px-3 py-2.5 text-slate-400">
+                    {row.depth3 ?? "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-300 leading-relaxed max-w-sm break-words">
+                    {row.contents || "—"}
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-500 max-w-xs break-words">
+                    {row.comments || "—"}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <a
+                      href={row.asIsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 hover:underline"
+                    >
+                      AS-IS ↗
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+            
+            {iaRows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="py-12 text-center text-slate-500">
+                  <p className="font-semibold text-slate-400">No Information Architecture records generated</p>
+                  <p className="mt-1 text-xs text-slate-600">Ensure there are successfully crawled pages in the inventory. If the crawl failed completely due to connection errors or blocking, no IA data can be generated.</p>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -1158,7 +1356,7 @@ function ExportTab({
       </div>
 
       {/* Download options */}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {/* All pages */}
         <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
           <div className="mb-3 flex items-center gap-2">
@@ -1207,6 +1405,58 @@ function ExportTab({
           ) : (
             <p className="text-xs text-slate-500">{t("targetScope.selectPage")}</p>
           )}
+        </div>
+
+        {/* IA Export */}
+        <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Layers className="h-4 w-4 text-purple-400" />
+            <h4 className="text-sm font-semibold text-white">Export IA Document</h4>
+          </div>
+          <p className="mb-4 text-[11px] leading-relaxed text-slate-500">
+            Download a professionally styled IA Excel document with borders, Depth 0 grouping, freeze panes, and hyperlinks. CSV raw backup also available.
+          </p>
+          <p className="mb-3 text-xs text-slate-400">
+            {t("export.allPagesCount", { count: successCount })}
+          </p>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={async () => {
+                const allIaRows = generateIA(allPages);
+                const rootUrl = allPages.length > 0 ? allPages[0].url : "";
+                const blob = await exportStyledIAXlsx(allIaRows, rootUrl);
+                const filename = buildIAExportFilename(rootUrl);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              disabled={successCount === 0}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-purple-600 bg-purple-600/10 px-4 py-2.5 text-sm font-semibold text-purple-300 transition-all hover:bg-purple-600/20 disabled:opacity-40"
+            >
+              <Download className="h-4 w-4" />
+              Download Styled IA XLSX
+            </button>
+            <button
+              onClick={() => {
+                const allIaRows = generateIA(allPages);
+                const csv = generateIACsv(allIaRows);
+                let domain = "site";
+                if (allPages.length > 0) {
+                  try { domain = new URL(allPages[0].url).hostname.replace(/\./g, "_"); } catch {}
+                }
+                const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+                downloadText(csv, `${domain}_ia_export_${today}.csv`);
+              }}
+              disabled={successCount === 0}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-2.5 text-sm font-semibold text-slate-400 transition-all hover:bg-slate-700/50 disabled:opacity-40"
+            >
+              <Download className="h-4 w-4" />
+              Download Raw CSV
+            </button>
+          </div>
         </div>
       </div>
 

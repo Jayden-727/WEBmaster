@@ -222,9 +222,9 @@ function ValueCardsSection() {
       description: "Audit title tags, descriptions, Open Graph, canonical URLs, robots directives, and structured data (JSON-LD).",
     },
     {
-      icon: Gauge,
-      title: "Lighthouse Performance",
-      description: "Run full Lighthouse audits locally. Get performance, accessibility, SEO, and best practices scores with Core Web Vitals.",
+      icon: Link2,
+      title: "Links & Images Explorer",
+      description: "Extract and audit all internal/external links, anchor texts, image assets, alt tags, and lazy-load settings.",
     },
   ];
 
@@ -237,7 +237,7 @@ function ValueCardsSection() {
             Everything you need to understand a webpage
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-400 sm:mt-4 sm:text-base">
-            Go beyond &quot;View Source&quot;. AttractiveWebAI combines crawling, parsing, detection, and performance auditing
+            Go beyond &quot;View Source&quot;. AttractiveWebAI combines crawling, parsing, and structured detection
             into one streamlined workflow.
           </p>
         </div>
@@ -272,7 +272,7 @@ function FeatureGridSection() {
     { icon: Grid3X3, title: "Structure Mapping", description: "Detect UI patterns — headers, heroes, CTAs, FAQs, forms, galleries — with matched selectors.", color: "from-pink-500/20 to-pink-500/5" },
     { icon: Link2, title: "Links Explorer", description: "Browse all links with internal/external classification, anchor text, and search & filter controls.", color: "from-amber-500/20 to-amber-500/5" },
     { icon: ImageIcon, title: "Images Explorer", description: "Thumbnail grid with preview modal, alt text audit, lazy-load detection, and download options.", color: "from-emerald-500/20 to-emerald-500/5" },
-    { icon: Gauge, title: "Lighthouse Insights", description: "Full performance audit with scores, Core Web Vitals (LCP, CLS, FCP, TBT, INP), and actionable tips.", color: "from-orange-500/20 to-orange-500/5" },
+    { icon: Search, title: "Recent Analyses History", description: "Keep track of recent website scans with resilient localStorage backups and history management.", color: "from-orange-500/20 to-orange-500/5" },
   ];
 
   return (
@@ -281,10 +281,10 @@ function FeatureGridSection() {
         <div className="mb-10 text-center sm:mb-12">
           <p className="mb-3 text-sm font-medium text-indigo-400">Product Modules</p>
           <h2 className="text-balance text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
-            Eight analysis modules. One dashboard.
+            Seven analysis modules. One dashboard.
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-400 sm:mt-4 sm:text-base">
-            Every analysis runs all eight modules simultaneously, giving you a complete picture in seconds.
+            Every analysis runs all seven modules simultaneously, giving you a complete picture in seconds.
           </p>
         </div>
 
@@ -314,7 +314,7 @@ function WhySection() {
   const comparisons = [
     { before: "View source and guess the stack", after: "Detect frameworks, CMS, and libraries automatically" },
     { before: "Manually check meta tags one by one", after: "Full metadata audit in one structured view" },
-    { before: "Run Lighthouse in a separate tool", after: "Integrated Lighthouse with Core Web Vitals dashboard" },
+    { before: "Fragmented analysis tools", after: "All-in-one page intelligence dashboard" },
     { before: "Copy-paste content from pages manually", after: "Clean text + markdown extraction in seconds" },
     { before: "Guess what UI components a page uses", after: "Automated structure detection with confidence scores" },
   ];
@@ -358,7 +358,7 @@ function WhySection() {
 function HowItWorksSection() {
   const steps = [
     { step: "01", icon: Globe, title: "Enter a URL", description: "Paste any public webpage URL into the analysis input. No setup, no API keys, no configuration needed." },
-    { step: "02", icon: Eye, title: "Automatic Analysis", description: "AttractiveWebAI crawls the page and runs all eight analysis modules simultaneously — stack, structure, metadata, content, links, images, and Lighthouse." },
+    { step: "02", icon: Eye, title: "Automatic Analysis", description: "AttractiveWebAI crawls the page and runs all seven analysis modules simultaneously — stack, structure, metadata, content, links, and images." },
     { step: "03", icon: LayoutDashboard, title: "Explore the Dashboard", description: "Browse the results in a clear, organized dashboard. Drill into any section, copy data, preview images, and export insights." },
   ];
 
@@ -407,7 +407,7 @@ function AudienceSection() {
   const audiences = [
     { icon: Code2, title: "Developers", description: "Reverse-engineer any site's stack and structure. Understand what frameworks and libraries power the page." },
     { icon: Monitor, title: "Product Managers", description: "Quickly analyze competitor pages. Understand structure, content strategy, and user-facing components." },
-    { icon: TrendingUp, title: "SEO Marketers", description: "Audit meta tags, Open Graph, structured data, and Lighthouse scores for any URL in seconds." },
+    { icon: TrendingUp, title: "SEO Marketers", description: "Audit meta tags, Open Graph, canonical URLs, and structured data for any URL in seconds." },
     { icon: ShieldCheck, title: "QA Teams", description: "Verify page structure, detect missing metadata, broken images, and performance regressions." },
     { icon: ShoppingCart, title: "E-Commerce Operators", description: "Analyze product pages, compare competitor layouts, and audit page speed for conversion optimization." },
     { icon: Users, title: "Agencies & Consultants", description: "Generate instant site audits for client presentations. Professional analysis in a shareable dashboard." },
