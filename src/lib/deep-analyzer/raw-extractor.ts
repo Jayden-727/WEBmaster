@@ -18,6 +18,7 @@ export function extractRawPageData(
   pageUrl: string,
   rootDomain: string,
   source: "static-html" | "rendered-dom" = "static-html",
+  allowedPathPrefix = "/",
 ): RawExtractionResult {
   const $ = cheerio.load(html);
 
@@ -53,14 +54,16 @@ export function extractRawPageData(
     html,
     baseUrl: pageUrl,
     rootUrl: `https://${rootDomain}`,
+    allowedPathPrefix,
     source,
   }).map((link) => ({
-    href: link.normalizedUrl,
+    href: link.normalizedUrl || link.raw,
     text: link.text || "Auto-detected Link",
-    isInternal: link.priority > 0,
+    isInternal: link.isInternal,
     isPriority: link.priority >= 90,
     source: link.source,
     priority: link.priority,
+    skipReason: link.skipReason || null,
   }));
 
   const rawImages: { src: string; alt: string }[] = [];
@@ -105,6 +108,7 @@ export function buildCrawledPage(
   rootDomain: string,
   pageTypeGuess: string | null,
   meta?: BuildPageMeta,
+  allowedPathPrefix = "/",
 ): CrawledPage {
   try {
     const isRendered = meta?.crawlStrategy === "rendered" || meta?.crawlStrategy === "fallback-rendered";
@@ -113,6 +117,7 @@ export function buildCrawledPage(
       url,
       rootDomain,
       isRendered ? "rendered-dom" : "static-html",
+      allowedPathPrefix,
     );
     return {
       url,

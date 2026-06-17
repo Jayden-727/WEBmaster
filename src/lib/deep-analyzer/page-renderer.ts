@@ -34,6 +34,13 @@ const COOKIE_BANNER_SELECTORS = [
   '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
   '[aria-label*="accept cookies" i]',
   '[aria-label*="accept all" i]',
+  'button:has-text("Agree")',
+  'button:has-text("Accept")',
+  'button:has-text("동의")',
+  'button:has-text("확인")',
+  '.cookie button',
+  '.cookie-banner button',
+  '#cookie button',
 ];
 
 const OVERLAY_SELECTORS = [
@@ -160,16 +167,32 @@ export async function renderPage(url: string): Promise<RenderResult> {
         ".menu > li",
         ".main-menu > li",
         ".depth1 > li",
+        "header nav span",
+        "header nav button",
+        "button[aria-label*='menu']",
+        "button:has-text('메뉴')"
       ];
       for (const selector of menuSelectors) {
-        const locators = await page.locator(selector).all();
+        const locators = await page.locator(selector).all().catch(() => []);
         for (const locator of locators.slice(0, 30)) {
           await locator.hover({ timeout: 1000 }).catch(() => {});
-          await new Promise((r) => setTimeout(r, 150));
+          await new Promise((r) => setTimeout(r, 100));
         }
       }
     } catch (hoverErr) {
       errors.push(`GNB hover failed: ${hoverErr instanceof Error ? hoverErr.message : String(hoverErr)}`);
+    }
+
+    // Scroll footer into view to load lazy GNB/Footer links
+    try {
+      const footerLocator = page.locator("footer").first();
+      const footerCount = await footerLocator.count().catch(() => 0);
+      if (footerCount > 0) {
+        await footerLocator.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    } catch (scrollErr) {
+      errors.push(`Footer scroll failed: ${scrollErr instanceof Error ? scrollErr.message : String(scrollErr)}`);
     }
 
     try {
@@ -193,11 +216,12 @@ async function tryDismissCookieBanner(
 ): Promise<boolean> {
   for (const selector of COOKIE_BANNER_SELECTORS) {
     try {
-      const button = await page.$(selector);
-      if (button) {
-        const isVisible = await button.isVisible().catch(() => false);
+      const btn = page.locator(selector).first();
+      const count = await btn.count().catch(() => 0);
+      if (count > 0) {
+        const isVisible = await btn.isVisible().catch(() => false);
         if (isVisible) {
-          await button.click({ timeout: 3000 });
+          await btn.click({ timeout: 2000 });
           return true;
         }
       }

@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   title: "AttractiveWebAI — AI-Powered Website Intelligence",
   description:
     "Analyze any website's structure, content, stack, metadata, links, images, and performance in one intelligent dashboard.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
 };
 
 export const viewport: Viewport = {

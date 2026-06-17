@@ -1,7 +1,7 @@
 import type { QueueItem, CrawledPage, CrawlMode, CrawlStrategyPreference } from "@/types/deep-analysis";
 import { buildCrawledPage } from "./raw-extractor";
 import { detectPageType } from "./page-type-detector";
-import { isWithinPathScope, normalizeUrl, shouldSkipUrl, isInternalUrl } from "./site-crawler";
+import { isWithinPathScope, normalizeUrl, shouldSkipUrl, isInternalUrl, verifyAndEnqueueHanonGuesses } from "./site-crawler";
 import { smartFetch } from "./smart-fetcher";
 
 const MAX_ABSOLUTE_PAGES = 10_000;
@@ -97,6 +97,7 @@ export async function runBatch(opts: BatchOptions): Promise<BatchResult> {
           finalUrl: fetchResult.finalUrl !== normalized ? fetchResult.finalUrl : undefined,
           cookieBannerHandled: fetchResult.cookieBannerHandled || undefined,
         },
+        opts.allowedPathPrefix,
       );
 
       const refinedType = detectPageType({
@@ -180,6 +181,19 @@ export async function runBatch(opts: BatchOptions): Promise<BatchResult> {
                 return bPri - aPri;
               });
             }
+          } catch {}
+        }
+        // Hanon Systems route guess fallback
+        if (item.depth === 0 && queue.length < 5 && opts.rootDomain.toLowerCase().includes("hanonsystems")) {
+          try {
+            const hanonNewUrls = await verifyAndEnqueueHanonGuesses({
+              normalized,
+              pathPrefix: opts.allowedPathPrefix,
+              rootUrl: normalized,
+              visited,
+              queue,
+            });
+            newDiscovered += hanonNewUrls.length;
           } catch {}
         }
       }

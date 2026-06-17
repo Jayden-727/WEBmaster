@@ -1,23 +1,30 @@
 import * as cheerio from "cheerio";
 
+export type LinkSource =
+  | "gnb"
+  | "header"
+  | "footer"
+  | "quick-link"
+  | "family-site"
+  | "sitemap-link"
+  | "static-anchor"
+  | "rendered-anchor"
+  | "onclick"
+  | "data-attribute"
+  | "form-action"
+  | "script-pattern"
+  | "robots"
+  | "sitemap-xml";
+
 export interface ExtractedLink {
   raw: string;
-  normalizedUrl: string;
-  source:
-    | "rendered-dom"
-    | "static-html"
-    | "gnb"
-    | "header"
-    | "footer"
-    | "sitemap"
-    | "robots"
-    | "onclick"
-    | "data-attribute"
-    | "form-action"
-    | "raw-pattern";
+  normalizedUrl: string | null;
+  source: LinkSource;
   priority: number;
-  text?: string;
+  text?: string | null;
   selector?: string;
+  isInternal: boolean;
+  skipReason?: string | null;
 }
 
 export function isLikelyPageUrl(url: string): boolean {
@@ -82,7 +89,11 @@ export function extractUrlsFromScriptLikeText(text: string): string[] {
     /location\.href\s*=\s*['"]([^'"]+)['"]/gi,
     /document\.location\s*=\s*['"]([^'"]+)['"]/gi,
     /location\.replace\(\s*['"]([^'"]+)['"]\s*\)/gi,
-    /(?:goPage|fnMove|movePage|goUrl|linkTo|fn_go|goMenu)\(\s*['"]([^'"]+)['"]\s*\)/gi,
+    /window\.open\(\s*['"]([^'"]+)['"]/gi,
+    /(?:goPage|fnMove|movePage|goUrl|linkTo|fn_go|goMenu|goMenuPage)\(\s*['"]([^'"]+)['"]\s*\)/gi,
+    /url\s*:\s*['"]([^'"]+)['"]/gi,
+    /href\s*:\s*['"]([^'"]+)['"]/gi,
+    /['"]([^'"]*\/(?:KR|EN)\/[^'"]+)['"]/gi,
     /['"]([^'"]+\.(?:do|html|htm|php|aspx|jsp)(?:\?[^'"]*)?)['"]/gi
   ];
 
@@ -99,13 +110,26 @@ export function extractUrlsFromScriptLikeText(text: string): string[] {
   return [...new Set(urls)];
 }
 
+function isWithinPathScopeSimple(href: string, allowedPathPrefix: string): boolean {
+  if (!allowedPathPrefix || allowedPathPrefix === "/") return true;
+  try {
+    const normHrefPath = new URL(href).pathname.toLowerCase().replace(/\/$/, "");
+    const normAllowedPrefix = allowedPathPrefix.toLowerCase().replace(/\/$/, "");
+    
+    return normHrefPath === normAllowedPrefix || normHrefPath.startsWith(normAllowedPrefix + "/");
+  } catch {
+    return false;
+  }
+}
+
 export function extractLinksFromHtml(params: {
   html: string;
   baseUrl: string;
   rootUrl: string;
+  allowedPathPrefix?: string;
   source: "static-html" | "rendered-dom";
 }): ExtractedLink[] {
-  const { html, baseUrl, rootUrl, source } = params;
+  const { html, baseUrl, rootUrl, allowedPathPrefix = "/", source } = params;
   const $ = cheerio.load(html);
   const rootDomain = new URL(rootUrl).hostname.replace(/^www\./i, "");
   const extractedLinks: ExtractedLink[] = [];
@@ -136,88 +160,171 @@ export function extractLinksFromHtml(params: {
   const addLink = (
     rawHref: string,
     linkText: string,
-    fallbackSource: ExtractedLink["source"],
+    fallbackSource: LinkSource,
     fallbackPriority: number,
     selector?: string
   ) => {
-    if (!rawHref) return;
+    if (!rawHref) {
+      extractedLinks.push({
+        raw: "",
+        normalizedUrl: null,
+        source: fallbackSource,
+        priority: 0,
+        text: linkText,
+        selector,
+        isInternal: false,
+        skipReason: "Empty href",
+      });
+      return;
+    }
 
-    // Handle javascript: URLs containing onclick/goPage patterns
-    if (rawHref.toLowerCase().startsWith("javascript:")) {
-      const scriptCode = decodeURIComponent(rawHref.substring(11));
+    const trimmed = rawHref.trim();
+
+    if (trimmed === "#" || trimmed.startsWith("#")) {
+      extractedLinks.push({
+        raw: trimmed,
+        normalizedUrl: null,
+        source: fallbackSource,
+        priority: 0,
+        text: linkText,
+        selector,
+        isInternal: false,
+        skipReason: "Empty/anchor href",
+      });
+      return;
+    }
+
+    if (trimmed.toLowerCase().startsWith("javascript:")) {
+      const scriptCode = decodeURIComponent(trimmed.substring(11));
       const scriptUrls = extractUrlsFromScriptLikeText(scriptCode);
-      for (const u of scriptUrls) {
-        addLink(u, linkText, "onclick", 50, selector);
+      if (scriptUrls.length > 0) {
+        for (const u of scriptUrls) {
+          addLink(u, linkText, "onclick", 70, selector);
+        }
+      } else {
+        extractedLinks.push({
+          raw: trimmed,
+          normalizedUrl: null,
+          source: "onclick",
+          priority: 0,
+          text: linkText,
+          selector,
+          isInternal: false,
+          skipReason: "javascript:void(0) or empty script",
+        });
       }
       return;
     }
 
-    const norm = normalizeCrawlUrl(rawHref, baseUrl);
-    if (!norm) return;
-
-    // Same domain checks (internal check)
-    let isInternal = false;
-    try {
-      const urlObj = new URL(norm);
-      isInternal = urlObj.hostname.replace(/^www\./i, "").endsWith(rootDomain);
-    } catch {
+    if (
+      trimmed.toLowerCase().startsWith("mailto:") ||
+      trimmed.toLowerCase().startsWith("tel:") ||
+      trimmed.toLowerCase().startsWith("sms:")
+    ) {
+      extractedLinks.push({
+        raw: trimmed,
+        normalizedUrl: null,
+        source: fallbackSource,
+        priority: 0,
+        text: linkText,
+        selector,
+        isInternal: false,
+        skipReason: "Non-http protocol",
+      });
       return;
     }
 
-    // Skip if external for crawl queue purposes, but still tag it
-    if (seen.has(norm)) return;
-    seen.add(norm);
+    const norm = normalizeCrawlUrl(trimmed, baseUrl);
+    if (!norm) {
+      extractedLinks.push({
+        raw: trimmed,
+        normalizedUrl: null,
+        source: fallbackSource,
+        priority: 0,
+        text: linkText,
+        selector,
+        isInternal: false,
+        skipReason: "Normalization failed",
+      });
+      return;
+    }
 
-    let priority = isInternal ? fallbackPriority : 0;
+    // Domain matching
+    let isInternal = false;
+    let skipReason: string | null = null;
+    try {
+      const urlObj = new URL(norm);
+      const hrefHost = urlObj.hostname.toLowerCase().replace(/^www\./i, "");
+      const rootHost = rootDomain.toLowerCase().replace(/^www\./i, "");
+      isInternal = hrefHost === rootHost || hrefHost.endsWith("." + rootHost);
+      
+      if (!isInternal) {
+        skipReason = "External domain";
+      } else if (!isLikelyPageUrl(norm)) {
+        skipReason = "Asset URL (image/file)";
+      } else if (!isWithinPathScopeSimple(norm, allowedPathPrefix)) {
+        skipReason = "Out of path scope";
+      }
+    } catch {
+      skipReason = "Invalid URL parse error";
+    }
+
     let linkSource = fallbackSource;
+    let priority = isInternal ? fallbackPriority : 0;
 
-    // Detect GNB/Header
-    const gnbSelectors = ["header", "nav", ".gnb", "#gnb", ".global-nav", ".navigation", ".menu", ".main-menu", ".depth1", ".depth2", ".lnb", ".snb"];
-    const footerSelectors = ["footer", "#footer", ".footer", ".site-footer", ".footer-menu", ".footer-nav", ".policy", ".customer", ".support", ".family-site", ".familySite", ".sns"];
+    const gnbSelectors = ["header", "nav", "[role=\"navigation\"]", ".gnb", "#gnb", ".global-nav", ".navigation", ".menu", ".main-menu", ".depth1", ".depth2", ".navbar", ".header", ".header-menu", ".lnb", ".snb"];
+    const footerSelectors = ["footer", "#footer", ".footer", ".site-footer", ".footer-menu", ".footer-nav", ".quick-link", ".quickLink", ".family-site", ".familySite", ".policy", ".privacy", ".sitemap", ".support", ".customer"];
 
     if (selector) {
-      if (gnbSelectors.some(s => selector.includes(s))) {
+      if (selector === "gnb") {
         linkSource = "gnb";
         priority = isInternal ? 100 : 0;
-      } else if (footerSelectors.some(s => selector.includes(s))) {
+      } else if (selector === "footer") {
         linkSource = "footer";
         priority = isInternal ? 90 : 0;
       }
     }
 
+    const key = `${norm}::${linkSource}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
     extractedLinks.push({
-      raw: rawHref,
+      raw: trimmed,
       normalizedUrl: norm,
       source: linkSource,
       priority,
       text: linkText.slice(0, 200).trim() || "Auto-detected Link",
-      selector
+      selector,
+      isInternal,
+      skipReason,
     });
   };
+
+  const defaultAnchorSource: LinkSource = source === "rendered-dom" ? "rendered-anchor" : "static-anchor";
 
   // 1. Anchors and area tags
   $("a[href], area[href]").each((_, el) => {
     const href = $(el).attr("href") ?? "";
     const text = $(el).text().trim();
     
-    // Find matching selector path
     let selector = "";
-    if (isWithinSelector(el, ["header", "nav", ".gnb", "#gnb", ".global-nav", ".navigation", ".menu", ".main-menu", ".depth1", ".depth2", ".lnb", ".snb"])) {
+    if (isWithinSelector(el, ["header", "nav", "[role=\"navigation\"]", ".gnb", "#gnb", ".global-nav", ".navigation", ".menu", ".main-menu", ".depth1", ".depth2", ".navbar", ".header", ".header-menu", ".lnb", ".snb"])) {
       selector = "gnb";
-    } else if (isWithinSelector(el, ["footer", "#footer", ".footer", ".site-footer", ".footer-menu", ".footer-nav", ".policy", ".customer", ".support", ".family-site", ".familySite", ".sns"])) {
+    } else if (isWithinSelector(el, ["footer", "#footer", ".footer", ".site-footer", ".footer-menu", ".footer-nav", ".quick-link", ".quickLink", ".family-site", ".familySite", ".policy", ".privacy", ".sitemap", ".support", ".customer"])) {
       selector = "footer";
     } else {
       selector = "body";
     }
 
-    addLink(href, text, source, 50, selector);
+    addLink(href, text, defaultAnchorSource, 50, selector);
   });
 
   // 2. Data attributes
-  $("[data-href], [data-url], [data-link], [data-target-url]").each((_, el) => {
-    const href = $(el).attr("data-href") || $(el).attr("data-url") || $(el).attr("data-link") || $(el).attr("data-target-url") || "";
+  $("[data-href], [data-url], [data-link], [data-target], [data-target-url]").each((_, el) => {
+    const href = $(el).attr("data-href") || $(el).attr("data-url") || $(el).attr("data-link") || $(el).attr("data-target") || $(el).attr("data-target-url") || "";
     const text = $(el).text().trim();
-    addLink(href, text, "data-attribute", 50, "body");
+    addLink(href, text, "data-attribute", 70, "body");
   });
 
   // 3. Onclick handlers
@@ -226,7 +333,7 @@ export function extractLinksFromHtml(params: {
     const text = $(el).text().trim();
     const extracted = extractUrlsFromScriptLikeText(onclick);
     for (const u of extracted) {
-      addLink(u, text, "onclick", 50, "body");
+      addLink(u, text, "onclick", 70, "body");
     }
   });
 
@@ -242,7 +349,7 @@ export function extractLinksFromHtml(params: {
     if (scriptContent) {
       const extracted = extractUrlsFromScriptLikeText(scriptContent);
       for (const u of extracted) {
-        addLink(u, "Script Link", "raw-pattern", 30, "script");
+        addLink(u, "Script Link", "script-pattern", 40, "script");
       }
     }
   });

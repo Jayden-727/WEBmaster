@@ -7,6 +7,122 @@ import { normalizeCrawlUrl, isLikelyPageUrl } from "./link-extractor";
 const PAUSE_BUFFER_MS = 5_000;
 const MAX_ABSOLUTE_PAGES = 10_000;
 
+export async function verifyUrlHeader(url: string): Promise<{ valid: boolean; finalUrl?: string }> {
+  const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  try {
+    const res = await fetch(url, {
+      method: "HEAD",
+      headers: { "User-Agent": userAgent },
+      redirect: "follow"
+    });
+    if (res.status >= 200 && res.status < 400) {
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("html")) {
+        return { valid: true, finalUrl: res.url || url };
+      }
+    }
+  } catch {}
+  
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { "User-Agent": userAgent },
+      redirect: "follow"
+    });
+    if (res.status >= 200 && res.status < 400) {
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("html")) {
+        return { valid: true, finalUrl: res.url || url };
+      }
+    }
+  } catch {}
+  
+  return { valid: false };
+}
+
+export async function verifyAndEnqueueHanonGuesses(params: {
+  normalized: string;
+  pathPrefix: string;
+  rootUrl: string;
+  visited: Set<string>;
+  queue: QueueItem[];
+}): Promise<string[]> {
+  const { normalized, pathPrefix, rootUrl, visited, queue } = params;
+  const enqueuedUrls: string[] = [];
+  const candidates = [
+    "/KR/Company",
+    "/KR/Company/CorporateDirection",
+    "/KR/Company/History",
+    "/KR/Company/GlobalNetwork",
+    "/KR/Company/Ethics",
+    "/KR/Solutions",
+    "/KR/Solutions/SoftwareDefinedThermalManagementSystems",
+    "/KR/Solutions/NaturalRefrigerantTechnologies",
+    "/KR/Solutions/HeatPumpSystemsAndModules",
+    "/KR/Solutions/Compressors",
+    "/KR/Solutions/HeatExchangers",
+    "/KR/Solutions/FluidTransportPumpSystems",
+    "/KR/Solutions/FuelCellEV",
+    "/KR/Investors",
+    "/KR/Investors/GeneralInformation",
+    "/KR/Investors/Presentations",
+    "/KR/Investors/Reports",
+    "/KR/Investors/Notices",
+    "/KR/Investors/IRContacts",
+    "/KR/Sustainability",
+    "/KR/Sustainability/ApproachAndPhilosophy",
+    "/KR/Sustainability/CarbonNeutral",
+    "/KR/Media",
+    "/KR/Media/NewsReleases",
+    "/KR/Media/Videos",
+    "/KR/Media/Recognition",
+    "/KR/Suppliers",
+    "/KR/Suppliers/SupplierPartnership",
+    "/KR/Sitemap",
+    "/KR/PrivacyPolicy",
+    "/KR/Ethics",
+  ];
+
+  const addedUrls = new Set<string>();
+
+  for (const candidate of candidates) {
+    const fullUrl = new URL(candidate, rootUrl).toString();
+    const norm = normalizeCrawlUrl(fullUrl, rootUrl) ?? fullUrl;
+    if (visited.has(norm)) continue;
+    if (queue.some(q => (normalizeCrawlUrl(q.url, rootUrl) ?? q.url) === norm) || addedUrls.has(norm)) continue;
+    if (!isWithinPathScope(norm, pathPrefix)) continue;
+
+    const { valid, finalUrl } = await verifyUrlHeader(norm);
+    if (valid) {
+      const targetUrl = finalUrl ? (normalizeCrawlUrl(finalUrl, rootUrl) ?? finalUrl) : norm;
+      if (visited.has(targetUrl)) continue;
+      if (queue.some(q => (normalizeCrawlUrl(q.url, rootUrl) ?? q.url) === targetUrl) || addedUrls.has(targetUrl)) continue;
+      if (!isWithinPathScope(targetUrl, pathPrefix)) continue;
+
+      queue.push({
+        url: targetUrl,
+        parentUrl: normalized,
+        depth: 1,
+        isPriority: false,
+        priority: 20,
+      } as any);
+      addedUrls.add(targetUrl);
+      enqueuedUrls.push(targetUrl);
+    }
+  }
+
+  if (enqueuedUrls.length > 0) {
+    queue.sort((a: any, b: any) => {
+      if (a.depth !== b.depth) return a.depth - b.depth;
+      const aPri = a.priority ?? 0;
+      const bPri = b.priority ?? 0;
+      return bPri - aPri;
+    });
+  }
+
+  return enqueuedUrls;
+}
+
 export function extractDomain(url: string): string {
   try {
     const host = new URL(url).hostname;
@@ -41,11 +157,12 @@ export function extractPathPrefix(url: string): string {
 }
 
 export function isWithinPathScope(href: string, allowedPathPrefix: string): boolean {
-  if (allowedPathPrefix === "/") return true;
+  if (!allowedPathPrefix || allowedPathPrefix === "/") return true;
   try {
-    let path = new URL(href).pathname;
-    if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-    return path === allowedPathPrefix || path.startsWith(allowedPathPrefix + "/");
+    const normHrefPath = new URL(href).pathname.toLowerCase().replace(/\/$/, "");
+    const normAllowedPrefix = allowedPathPrefix.toLowerCase().replace(/\/$/, "");
+    
+    return normHrefPath === normAllowedPrefix || normHrefPath.startsWith(normAllowedPrefix + "/");
   } catch {
     return false;
   }
@@ -53,9 +170,9 @@ export function isWithinPathScope(href: string, allowedPathPrefix: string): bool
 
 export function isInternalUrl(href: string, rootDomain: string): boolean {
   try {
-    const hrefHost = new URL(href).hostname.replace(/^www\./i, "");
-    const rootHost = rootDomain.replace(/^www\./i, "");
-    return hrefHost.endsWith(rootHost);
+    const hrefHost = new URL(href).hostname.toLowerCase().replace(/^www\./i, "");
+    const rootHost = rootDomain.toLowerCase().replace(/^www\./i, "");
+    return hrefHost === rootHost || hrefHost.endsWith("." + rootHost);
   } catch {
     return false;
   }
@@ -169,6 +286,7 @@ export async function* crawlSite(
           finalUrl: fetchResult.finalUrl !== normalized ? fetchResult.finalUrl : undefined,
           cookieBannerHandled: fetchResult.cookieBannerHandled || undefined,
         },
+        pathPrefix,
       );
 
       const refinedType = detectPageType({
@@ -313,6 +431,31 @@ export async function* crawlSite(
           } catch (smErr) {
             if (process.env.NODE_ENV === "development") {
               console.error("[DeepAnalyzer] Sitemap fallback error:", smErr);
+            }
+          }
+        }
+        // Hanon Systems route guess fallback if it's the seed page and we still don't have enough links
+        if (item.depth === 0 && queue.length < 5 && domain.toLowerCase().includes("hanonsystems")) {
+          if (process.env.NODE_ENV === "development") {
+            console.log(`[DeepAnalyzer] Low link count (${queue.length}) on seed page for Hanon. Triggering route guesses fallback...`);
+          }
+          try {
+            const hanonNewUrls = await verifyAndEnqueueHanonGuesses({
+              normalized,
+              pathPrefix,
+              rootUrl,
+              visited,
+              queue,
+            });
+            for (const hUrl of hanonNewUrls) {
+              yield { type: "discovered", url: hUrl, depth: 1 };
+            }
+            if (process.env.NODE_ENV === "development") {
+              console.log(`[DeepAnalyzer] Hanon route guesses added ${hanonNewUrls.length} links to queue.`);
+            }
+          } catch (guessErr) {
+            if (process.env.NODE_ENV === "development") {
+              console.error("[DeepAnalyzer] Hanon route guesses error:", guessErr);
             }
           }
         }

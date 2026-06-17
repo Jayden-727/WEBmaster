@@ -31,11 +31,11 @@ export function inferBrandFromHostname(hostname: string): string {
 export function inferLocaleFromUrl(url: URL | string): string {
   try {
     const u = typeof url === "string" ? new URL(url) : url;
-    const path = u.pathname.toLowerCase();
-    if (path.includes("/kr/") || path.includes("/ko/")) return "KR";
-    if (path.includes("/jp/") || path.includes("/ja/")) return "JP";
-    if (path.includes("/tw/") || path.includes("/zh-tw/")) return "TW";
-    if (path.includes("/vn/") || path.includes("/vi/")) return "VN";
+    const path = u.pathname.toLowerCase().replace(/\/$/, "");
+    if (path === "/kr" || path.startsWith("/kr/") || path === "/ko" || path.startsWith("/ko/")) return "KR";
+    if (path === "/jp" || path.startsWith("/jp/") || path === "/ja" || path.startsWith("/ja/")) return "JP";
+    if (path === "/tw" || path.startsWith("/tw/") || path === "/zh-tw" || path.startsWith("/zh-tw/")) return "TW";
+    if (path === "/vn" || path.startsWith("/vn/") || path === "/vi" || path.startsWith("/vi/")) return "VN";
     if (u.hostname.endsWith(".tw")) return "TW";
     if (u.hostname.endsWith(".vn")) return "VN";
     if (u.hostname.endsWith(".jp")) return "JP";
@@ -61,6 +61,12 @@ export function getGroupCode(depth0: string): string {
   if (d0 === "MAIN" || d0 === "메인") return "M";
   if (d0 === "PRODUCT" || d0 === "제품") return "P";
   if (d0 === "BRAND" || d0 === "브랜드") return "B";
+  if (d0 === "COMPANY") return "B"; // Map COMPANY depth0 to 'B' screen ID group
+  if (d0 === "SOLUTIONS") return "SOL";
+  if (d0 === "INVESTORS") return "IR";
+  if (d0 === "SUSTAINABILITY") return "ESG";
+  if (d0 === "MEDIA") return "MED";
+  if (d0 === "SUPPLIERS") return "SUP";
   if (d0 === "SUPPORT" || d0 === "고객지원") return "S";
   if (d0 === "EVENT" || d0 === "이벤트") return "E";
   if (d0 === "ACCOUNT" || d0 === "계정") return "A";
@@ -94,24 +100,30 @@ const DEPTH0_PRIORITY: Record<string, number> = {
   COMMON: 0,
   MAIN: 1,
   "메인": 1,
-  PRODUCT: 2,
-  "제품": 2,
-  ACCOUNT: 3,
-  "계정": 3,
-  CART: 4,
-  "장바구니": 4,
-  CHECKOUT: 5,
-  "결제": 5,
-  BRAND: 6,
-  "브랜드": 6,
-  EVENT: 7,
-  "이벤트": 7,
-  CONTENT: 8,
-  "콘텐츠": 8,
-  SUPPORT: 9,
-  "고객지원": 9,
-  OTHER: 10,
-  "기타": 10,
+  COMPANY: 2,
+  SOLUTIONS: 3,
+  INVESTORS: 4,
+  SUSTAINABILITY: 5,
+  MEDIA: 6,
+  SUPPLIERS: 7,
+  PRODUCT: 8,
+  "제품": 8,
+  ACCOUNT: 9,
+  "계정": 9,
+  CART: 10,
+  "장바구니": 10,
+  CHECKOUT: 11,
+  "결제": 11,
+  BRAND: 12,
+  "브랜드": 12,
+  EVENT: 13,
+  "이벤트": 13,
+  CONTENT: 14,
+  "콘텐츠": 14,
+  SUPPORT: 15,
+  "고객지원": 15,
+  OTHER: 16,
+  "기타": 16,
 };
 
 export function generateIA(pages: CrawledPage[]): IARow[] {
@@ -131,6 +143,7 @@ export function generateIA(pages: CrawledPage[]): IARow[] {
   } catch {}
   const brandCode = getBrandCode(brand);
   const isLaufennKR = brandCode === "LAF" && locale === "KR";
+  const isHanonKR = brandCode === "HAN" && locale === "KR";
 
   const rawRows: Omit<IARow, "screenId">[] = [];
 
@@ -155,7 +168,26 @@ export function generateIA(pages: CrawledPage[]): IARow[] {
   };
 
   // 2. Generate COMMON Virtual Rows
-  if (isLaufennKR) {
+  if (isHanonKR) {
+    rawRows.push({
+      depth0: "COMMON",
+      depth1: "GNB",
+      depth2: "-",
+      depth3: "-",
+      contents: "사이트 전역 GNB 메뉴",
+      comments: "Header navigation source",
+      asIsUrl: homeUrl,
+    });
+    rawRows.push({
+      depth0: "COMMON",
+      depth1: "Footer",
+      depth2: "-",
+      depth3: "-",
+      contents: "사이트 전역 Footer 메뉴",
+      comments: "Footer navigation source",
+      asIsUrl: homeUrl,
+    });
+  } else if (isLaufennKR) {
     rawRows.push({
       depth0: "COMMON",
       depth1: "GNB",
@@ -259,7 +291,17 @@ export function generateIA(pages: CrawledPage[]): IARow[] {
   }
 
   // 3. Generate MAIN Rows (Home, Banner, Main Contents)
-  if (isLaufennKR) {
+  if (isHanonKR) {
+    rawRows.push({
+      depth0: "MAIN",
+      depth1: "메인 홈",
+      depth2: "-",
+      depth3: "-",
+      contents: "Hanon Systems KR 메인 홈",
+      comments: "Seed page",
+      asIsUrl: homeUrl,
+    });
+  } else if (isLaufennKR) {
     rawRows.push({
       depth0: "MAIN",
       depth1: "메인 홈",
@@ -422,7 +464,43 @@ export function generateIA(pages: CrawledPage[]): IARow[] {
     }
 
     // Classification Heuristics
-    if (pathString.includes("login")) {
+    if (pathString.includes("company")) {
+      depth0 = "COMPANY";
+      depth1 = titleClean || "Overview";
+      reason = "URL contains company keyword";
+    } else if (pathString.includes("solution")) {
+      depth0 = "SOLUTIONS";
+      depth1 = titleClean || "Solutions Details";
+      reason = "URL contains solutions keyword";
+    } else if (pathString.includes("investor")) {
+      depth0 = "INVESTORS";
+      depth1 = titleClean || "Investor Relations";
+      reason = "URL contains investors keyword";
+    } else if (pathString.includes("sustainability")) {
+      depth0 = "SUSTAINABILITY";
+      depth1 = titleClean || "Sustainability Overview";
+      reason = "URL contains sustainability keyword";
+    } else if (pathString.includes("media") || pathString.includes("press")) {
+      depth0 = "MEDIA";
+      depth1 = titleClean || "Media Center";
+      reason = "URL contains media/press keyword";
+    } else if (pathString.includes("supplier")) {
+      depth0 = "SUPPLIERS";
+      depth1 = titleClean || "Supplier Partnership";
+      reason = "URL contains suppliers keyword";
+    } else if (pathString.includes("sitemap")) {
+      depth0 = "COMMON";
+      depth1 = "Sitemap";
+      reason = "URL contains sitemap keyword";
+    } else if (pathString.includes("policy") || pathString.includes("privacy")) {
+      depth0 = "COMMON";
+      depth1 = "Privacy Policy";
+      reason = "URL contains policy/privacy keyword";
+    } else if (pathString.includes("ethics")) {
+      depth0 = "COMMON";
+      depth1 = "Ethics";
+      reason = "URL contains ethics keyword";
+    } else if (pathString.includes("login")) {
       depth0 = "ACCOUNT";
       depth1 = "Login";
       reason = "URL contains login keyword";
@@ -586,6 +664,7 @@ export function generateIAFromAnalysis(analysis: AnalyzeApiResponse): IARow[] {
   } catch {}
   const brandCode = getBrandCode(brand);
   const isLaufennKR = brandCode === "LAF" && locale === "KR";
+  const isHanonKR = brandCode === "HAN" && locale === "KR";
 
   // Helper to generate a content summary
   const getPageSummary = (defaultDesc: string) => {
@@ -610,7 +689,10 @@ export function generateIAFromAnalysis(analysis: AnalyzeApiResponse): IARow[] {
   const cleanTextLower = (analysis.data.content.cleanText || "").toLowerCase();
 
   // Generate COMMON Virtual Rows
-  if (isLaufennKR) {
+  if (isHanonKR) {
+    rawRows.push({ depth0: "COMMON", depth1: "GNB", depth2: "-", depth3: "-", contents: "사이트 전역 GNB 메뉴", comments: "Header navigation source", asIsUrl: homeUrl });
+    rawRows.push({ depth0: "COMMON", depth1: "Footer", depth2: "-", depth3: "-", contents: "사이트 전역 Footer 메뉴", comments: "Footer navigation source", asIsUrl: homeUrl });
+  } else if (isLaufennKR) {
     rawRows.push({ depth0: "COMMON", depth1: "GNB", depth2: "-", depth3: "-", contents: "Header navigation, main menu links, category links.", comments: "GNB 메뉴 구조 공통 레이아웃 (브랜드 소개, 타이어 정보, 매장/대리점 찾기)", asIsUrl: homeUrl });
     rawRows.push({ depth0: "COMMON", depth1: "Footer", depth2: "-", depth3: "-", contents: "Footer navigation, copyright info, customer support info.", comments: "하단 푸터 공통 영역 (회사 정보, 저작권 표시)", asIsUrl: homeUrl });
     rawRows.push({ depth0: "COMMON", depth1: "SNS / Follow Us", depth2: "-", depth3: "-", contents: "Links to official brand social media channels (YouTube, Instagram, Facebook).", comments: "공식 소셜 미디어 채널 연동 링크 공통 영역", asIsUrl: homeUrl });
@@ -645,7 +727,9 @@ export function generateIAFromAnalysis(analysis: AnalyzeApiResponse): IARow[] {
   let reason = "Classified by general path segment patterns";
 
   if (isHome) {
-    if (isLaufennKR) {
+    if (isHanonKR) {
+      rawRows.push({ depth0: "MAIN", depth1: "메인 홈", depth2: "-", depth3: "-", contents: "Hanon Systems KR 메인 홈", comments: "Seed page", asIsUrl: homeUrl });
+    } else if (isLaufennKR) {
       rawRows.push({ depth0: "MAIN", depth1: "메인 홈", depth2: "-", depth3: "-", contents: "Laufenn KR brand landing main page.", comments: "한국 라우펜 메인 랜딩 페이지", asIsUrl: homeUrl });
       rawRows.push({ depth0: "MAIN", depth1: "Hero 영역", depth2: "-", depth3: "-", contents: "Main promotional visual banner and slide campaign showcase.", comments: "메인 비주얼 히어로 슬라이드 배너 영역", asIsUrl: homeUrl });
       rawRows.push({ depth0: "MAIN", depth1: "주요 타이어 소개 영역", depth2: "-", depth3: "-", contents: "Curated spotlight showcase of flagship tire models.", comments: "메인 페이지 주요 타이어 추천 노출 영역", asIsUrl: homeUrl });
@@ -663,7 +747,43 @@ export function generateIAFromAnalysis(analysis: AnalyzeApiResponse): IARow[] {
     }
   } else {
     // Classification Heuristics for Subpages
-    if (pathString.includes("login")) {
+    if (pathString.includes("company")) {
+      depth0 = "COMPANY";
+      depth1 = titleClean || "Overview";
+      reason = "URL contains company keyword";
+    } else if (pathString.includes("solution")) {
+      depth0 = "SOLUTIONS";
+      depth1 = titleClean || "Solutions Details";
+      reason = "URL contains solutions keyword";
+    } else if (pathString.includes("investor")) {
+      depth0 = "INVESTORS";
+      depth1 = titleClean || "Investor Relations";
+      reason = "URL contains investors keyword";
+    } else if (pathString.includes("sustainability")) {
+      depth0 = "SUSTAINABILITY";
+      depth1 = titleClean || "Sustainability Overview";
+      reason = "URL contains sustainability keyword";
+    } else if (pathString.includes("media") || pathString.includes("press")) {
+      depth0 = "MEDIA";
+      depth1 = titleClean || "Media Center";
+      reason = "URL contains media/press keyword";
+    } else if (pathString.includes("supplier")) {
+      depth0 = "SUPPLIERS";
+      depth1 = titleClean || "Supplier Partnership";
+      reason = "URL contains suppliers keyword";
+    } else if (pathString.includes("sitemap")) {
+      depth0 = "COMMON";
+      depth1 = "Sitemap";
+      reason = "URL contains sitemap keyword";
+    } else if (pathString.includes("policy") || pathString.includes("privacy")) {
+      depth0 = "COMMON";
+      depth1 = "Privacy Policy";
+      reason = "URL contains policy/privacy keyword";
+    } else if (pathString.includes("ethics")) {
+      depth0 = "COMMON";
+      depth1 = "Ethics";
+      reason = "URL contains ethics keyword";
+    } else if (pathString.includes("login")) {
       depth0 = "ACCOUNT"; depth1 = "Login"; reason = "URL contains login keyword";
     } else if (pathString.includes("register") || pathString.includes("signup")) {
       depth0 = "ACCOUNT"; depth1 = "Create Customer Account"; reason = "URL contains registration path keyword";

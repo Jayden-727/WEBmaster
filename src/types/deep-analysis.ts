@@ -46,7 +46,7 @@ export interface CrawledPage {
   status: "success" | "error";
   rawMetadata: Record<string, string | null>;
   rawHeadings: { level: number; text: string }[];
-  rawLinks: { href: string; text: string; isInternal: boolean; isPriority?: boolean; source?: string; priority?: number }[];
+  rawLinks: { href: string; text: string; isInternal: boolean; isPriority?: boolean; source?: string; priority?: number; skipReason?: string | null }[];
   rawImages: { src: string; alt: string }[];
   rawTextPreview: string;
   pageTypeGuess: string | null;
